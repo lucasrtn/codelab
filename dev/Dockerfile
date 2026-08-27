@@ -35,6 +35,22 @@ RUN sed -i \
       's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' \
       /etc/ssh/sshd_config
 
+# Clé SSH publique injectée au démarrage
+RUN printf '#!/bin/sh\n\
+set -e\n\
+mkdir -p /home/vscode/.ssh\n\
+chown vscode:vscode /home/vscode/.ssh\n\
+chmod 700 /home/vscode/.ssh\n\
+if [ -n "$SSH_PUBLIC_KEY" ] && [ ! -f /home/vscode/.ssh/authorized_keys ]; then\n\
+  printf "%s\\n" "$SSH_PUBLIC_KEY" > /home/vscode/.ssh/authorized_keys\n\
+  chown vscode:vscode /home/vscode/.ssh/authorized_keys\n\
+  chmod 600 /home/vscode/.ssh/authorized_keys\n\
+fi\n\
+exec "$@"\n' > /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
 WORKDIR /workspace
 
 EXPOSE 22
