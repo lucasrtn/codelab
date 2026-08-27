@@ -1,0 +1,24 @@
+services:
+  app-manager:
+    image: ghcr.io/lucasrtn/codelab-app-manager:latest
+    container_name: codelab-app-manager
+    restart: unless-stopped
+
+    ports:
+      - "9001:9001"
+
+    volumes:
+      - codelab-app-manager:/var/lib/codelab/app-manager
+      - codelab-config:/var/lib/codelab/config
+      - codelab-workspace:/workspace
+
+    environment:
+      APP_MANAGER_DIR: /opt/codelab/app-manager
+      APP_MANAGER_STATE: /var/lib/codelab/app-manager
+      APP_MANAGER_ROOT: /workspace
+      MANAGER_PORT: "9001"
+
+volumes:
+  codelab-app-manager:
+  codelab-config:
+  codelab-workspace:
