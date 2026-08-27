@@ -10,7 +10,7 @@ services:
     volumes:
       - codelab-app-manager:/var/lib/codelab/app-manager
       - codelab-config:/var/lib/codelab/config
-      - codelab-workspace:/workspace
+      - /DATA/AppData/codelab/workspace:/workspace
 
     environment:
       APP_MANAGER_DIR: /opt/codelab/app-manager
@@ -21,4 +21,3 @@ services:
 volumes:
   codelab-app-manager:
   codelab-config:
-  codelab-workspace:
