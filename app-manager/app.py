@@ -222,6 +222,73 @@ def api_logs(name):
     return jsonify({"lines": lines or ["Journal vide."]})
 
 
+
+@flask_app.post("/api/create")
+def api_create():
+    d = request.get_json(force=True)
+
+    name = re.sub(
+        r"[^a-z0-9_-]",
+        "-",
+        (d.get("name") or "").strip().lower()
+    ).strip("-")
+
+    if not name:
+        return jsonify({"error": "Le nom est obligatoire."}), 400
+
+    if name in ("api", "static", "health"):
+        return jsonify({"error": "Ce nom est reserve."}), 400
+
+    apps = load()
+
+    if name in apps:
+        return jsonify({"error": "Une application porte deja ce nom."}), 400
+
+    path = os.path.join(ROOT, name)
+
+    if os.path.exists(path):
+        return jsonify({"error": "Le dossier existe deja : " + path}), 400
+
+    port = next_port(apps)
+
+    if not port:
+        return jsonify({"error": "Plus de port interne disponible."}), 400
+
+    os.makedirs(path)
+
+    with open(os.path.join(path, "index.html"), "w") as f:
+        f.write("""<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>%s</title>
+</head>
+<body>
+  <h1>Bienvenue dans CodeLab</h1>
+  <p>Projet : %s</p>
+</body>
+</html>
+""" % (name, name))
+
+    apps[name] = {
+        "path": path,
+        "command": "python3 -m http.server $PORT",
+        "port": port,
+        "enabled": False
+    }
+
+    save(apps)
+    start(name)
+
+    return jsonify({
+        "ok": True,
+        "name": name,
+        "path": path,
+        "port": port,
+        "running": is_running(name)
+    })
+
 # ------------------------------ PROXY ------------------------------
 
 def _proxy(name, sub):
