@@ -15,17 +15,25 @@ RUN apt-get update \
         build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Utilisateur dédié au développement
+# Utilisateur de développement
 RUN useradd -m -s /bin/bash vscode \
     && usermod -aG sudo vscode \
     && echo "vscode ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vscode \
     && chmod 0440 /etc/sudoers.d/vscode
 
-# Configuration SSH
+# Préparation SSH
 RUN mkdir -p /run/sshd \
     && mkdir -p /home/vscode/.ssh \
     && chown -R vscode:vscode /home/vscode/.ssh \
     && chmod 700 /home/vscode/.ssh
+
+# Pas d'authentification SSH par mot de passe
+RUN sed -i \
+      's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' \
+      /etc/ssh/sshd_config \
+    && sed -i \
+      's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' \
+      /etc/ssh/sshd_config
 
 WORKDIR /workspace
 
