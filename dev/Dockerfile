@@ -41,7 +41,7 @@ RUN cat > /usr/local/bin/docker-entrypoint.sh <<'EOF'
 set -e
 
 SSH_DIR="/home/vscode/.ssh"
-AUTHORIZED_KEYS="$SSH_DIR/authorized_keys"
+AUTHORIZED_KEYS="${SSH_DIR}/authorized_keys"
 
 mkdir -p "$SSH_DIR"
 chown vscode:vscode "$SSH_DIR"
