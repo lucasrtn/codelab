@@ -26,6 +26,8 @@ services:
     container_name: codelab-dev
     restart: unless-stopped
 
+    ports:
+      - "2222:22"
     volumes:
       - /DATA/AppData/codelab/workspace:/workspace
       - codelab-dev-ssh:/home/vscode/.ssh
