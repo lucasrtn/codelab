@@ -28,6 +28,7 @@ services:
 
     volumes:
       - /DATA/AppData/codelab/workspace:/workspace
+      - codelab-dev-ssh:/home/vscode/.ssh
 
     networks:
       - codelab
@@ -35,6 +36,7 @@ services:
 volumes:
   codelab-app-manager:
   codelab-config:
+  codelab-dev-ssh:
 
 networks:
   codelab:
