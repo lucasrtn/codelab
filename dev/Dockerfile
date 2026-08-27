@@ -36,18 +36,27 @@ RUN sed -i \
       /etc/ssh/sshd_config
 
 # Clé SSH publique injectée au démarrage
-RUN printf '#!/bin/sh\n\
-set -e\n\
-mkdir -p /home/vscode/.ssh\n\
-chown vscode:vscode /home/vscode/.ssh\n\
-chmod 700 /home/vscode/.ssh\n\
-if [ -n "$SSH_PUBLIC_KEY" ] && [ ! -f /home/vscode/.ssh/authorized_keys ]; then\n\
-  printf "%s\\n" "$SSH_PUBLIC_KEY" > /home/vscode/.ssh/authorized_keys\n\
-  chown vscode:vscode /home/vscode/.ssh/authorized_keys\n\
-  chmod 600 /home/vscode/.ssh/authorized_keys\n\
-fi\n\
-exec "$@"\n' > /usr/local/bin/docker-entrypoint.sh \
-    && chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN cat > /usr/local/bin/docker-entrypoint.sh <<'EOF'
+#!/bin/sh
+set -e
+
+SSH_DIR="/home/vscode/.ssh"
+AUTHORIZED_KEYS="$SSH_DIR/authorized_keys"
+
+mkdir -p "$SSH_DIR"
+chown vscode:vscode "$SSH_DIR"
+chmod 700 "$SSH_DIR"
+
+if [ -n "${SSH_PUBLIC_KEY:-}" ]; then
+    printf '%s\n' "$SSH_PUBLIC_KEY" > "$AUTHORIZED_KEYS"
+    chown vscode:vscode "$AUTHORIZED_KEYS"
+    chmod 600 "$AUTHORIZED_KEYS"
+fi
+
+exec "$@"
+EOF
+
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
