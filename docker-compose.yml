@@ -18,6 +18,26 @@ services:
       APP_MANAGER_ROOT: /workspace
       MANAGER_PORT: "9001"
 
+    networks:
+      - codelab
+
+  dev:
+    build:
+      context: ./dev
+      dockerfile: Dockerfile
+
+    container_name: codelab-dev
+    restart: unless-stopped
+
+    volumes:
+      - /DATA/AppData/codelab/workspace:/workspace
+
+    networks:
+      - codelab
+
 volumes:
   codelab-app-manager:
   codelab-config:
+
+networks:
+  codelab:
