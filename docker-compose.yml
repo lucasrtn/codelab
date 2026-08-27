@@ -22,10 +22,7 @@ services:
       - codelab
 
   dev:
-    build:
-      context: ./dev
-      dockerfile: Dockerfile
-
+    image: ghcr.io/lucasrtn/codelab-dev:latest
     container_name: codelab-dev
     restart: unless-stopped
 
