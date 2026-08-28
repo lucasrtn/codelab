@@ -12,6 +12,7 @@ RUN apt-get update \
         python3 \
         python3-pip \
         python3-venv \
+        python3-yaml \
         build-essential \
     && rm -rf /var/lib/apt/lists/*
 
@@ -58,10 +59,17 @@ EOF
 
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# Runner Dragster
+RUN pip3 install --break-system-packages --no-cache-dir flask
+
+COPY runner.py /opt/codelab/runner.py
+
+EXPOSE 9003
+
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 WORKDIR /workspace
 
 EXPOSE 22
 
-CMD ["/usr/sbin/sshd", "-D", "-e"]
+CMD [["/bin/bash", "-c", "/usr/sbin/sshd && exec python3 /opt/codelab/runner.py"]
