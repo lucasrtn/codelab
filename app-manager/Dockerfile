@@ -1,13 +1,14 @@
-FROM python:3.13-slim
+FROM python:3.13-slim 
 
-ENV PYTHONUNBUFFERED=1
+WORKDIR /opt/codelab/app-manager 
 
-WORKDIR /opt/codelab/app-manager
+ENV PYTHONUNBUFFERED=1 
+ENV PYTHONDONTWRITEBYTECODE=1 
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir \ flask \ requests 
 
-COPY app-manager/app.py /opt/codelab/app-manager/app.py
+COPY app-manager/app.py /opt/codelab/app-manager/app.py 
 
-EXPOSE 9001
+EXPOSE 9001 
 
 CMD ["python", "/opt/codelab/app-manager/app.py"]
