@@ -1,10 +1,7 @@
 services:
 
   app-manager:
-    build:
-      context: .
-      dockerfile: app-manager/Dockerfile
-    image: codelab-app-manager:latest
+    image: ghcr.io/lucasrtn/codelab-app-manager:latest
     container_name: codelab-app-manager
     restart: unless-stopped
 
@@ -27,10 +24,7 @@ services:
 
 
   dev:
-    build:
-      context: .
-      dockerfile: dev/Dockerfile
-    image: codelab-dev:latest
+    image: ghcr.io/lucasrtn/codelab-dev:latest
     container_name: codelab-dev
     restart: unless-stopped
 
@@ -90,10 +84,7 @@ services:
 
 
   dagster:
-    build:
-      context: .
-      dockerfile: dagster/Dockerfile
-    image: codelab-dagster:latest
+    image: ghcr.io/lucasrtn/codelab-dagster:latest
     container_name: codelab-dagster
     restart: unless-stopped
 
@@ -117,10 +108,7 @@ services:
 
 
   dagster-daemon:
-    build:
-      context: .
-      dockerfile: dagster/Dockerfile
-    image: codelab-dagster:latest
+    image: ghcr.io/lucasrtn/codelab-dagster:latest
     container_name: codelab-dagster-daemon
     restart: unless-stopped
 
@@ -145,24 +133,18 @@ services:
 
 
 volumes:
-
   codelab-app-manager:
-
   codelab-config:
-
   codelab-dev-ssh:
-
   codelab-dagster-home:
 
 
 secrets:
-
   postgres_password:
     file: /DATA/AppData/codelab/config/postgres/password
 
 
 networks:
-
   codelab:
     external: true
     name: codelab_codelab
