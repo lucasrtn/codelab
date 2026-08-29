@@ -1,36 +1,45 @@
 FROM python:3.13-slim
 
-ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 VIRTUAL_ENV=/opt/codelab/venv PATH="/opt/codelab/venv/bin:$PATH"
-WORKDIR /opt/codelab
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends openssh-server git ca-certificates && rm -rf /var/lib/apt/lists/* && python -m venv "${VIRTUAL_ENV}" && mkdir -p /run/sshd /workspace /home/vscode/.ssh
+WORKDIR /opt/codelab/dev
 
-COPY dev/requirements.txt /opt/codelab/requirements.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        openssh-server \
+        git \
+        curl \
+        ca-certificates \
+        sudo \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r /opt/codelab/requirements.txt
+RUN useradd -m -u 1000 -s /bin/bash vscode \
+    && mkdir -p /home/vscode/.ssh \
+    && chown -R vscode:vscode /home/vscode
 
-COPY dev/runner.py /opt/codelab/runner.py
+COPY dev/requirements.txt /opt/codelab/dev/requirements.txt
 
-RUN useradd --uid 1000 --create-home --shell /bin/bash vscode && chown -R vscode:vscode /home/vscode /workspace && sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+RUN pip install --no-cache-dir -r /opt/codelab/dev/requirements.txt
 
-COPY --chmod=755 <<'EOF' /usr/local/bin/docker-entrypoint.sh
-#!/bin/sh
-set -eu
-mkdir -p /home/vscode/.ssh
-chown vscode:vscode /home/vscode/.ssh
-chmod 700 /home/vscode/.ssh
-if [ -n "${SSH_PUBLIC_KEY:-}" ]; then
-  printf '%s\n' "${SSH_PUBLIC_KEY}" > /home/vscode/.ssh/authorized_keys
-  chown vscode:vscode /home/vscode/.ssh/authorized_keys
-  chmod 600 /home/vscode/.ssh/authorized_keys
-fi
-ssh-keygen -A
-/usr/sbin/sshd
-exec "$@"
-EOF
+COPY dev/runner.py /opt/codelab/dev/runner.py
+
+RUN mkdir -p /run/sshd \
+    && sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
 
 EXPOSE 22
 
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-
-CMD ["/opt/codelab/venv/bin/python", "/opt/codelab/runner.py"]
+CMD ["/bin/bash", "-lc", "\
+    mkdir -p /home/vscode/.ssh && \
+    chmod 700 /home/vscode/.ssh && \
+    if [ -n \"${SSH_PUBLIC_KEY}\" ]; then \
+        printf '%s\\n' \"${SSH_PUBLIC_KEY}\" > /home/vscode/.ssh/authorized_keys; \
+    fi && \
+    chown -R vscode:vscode /home/vscode/.ssh && \
+    chmod 600 /home/vscode/.ssh/authorized_keys 2>/dev/null || true && \
+    /usr/sbin/sshd && \
+    exec python /opt/codelab/dev/runner.py \
+"]
