@@ -1,23 +1,79 @@
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  author: lucasrtn
+  category: Developer
+  description:
+    en_US: All-in-one dev environment — Postgres, SSH + VS Code, Dagster orchestration and a custom app deployer.
+    fr_FR: Environnement de developpement tout-en-un — Postgres, SSH + VS Code, orchestration Dagster et un gestionnaire d'applications.
+  icon: https://raw.githubusercontent.com/lucasrtn/codelab/main/icon.png
+  index: /
+  main: app-manager
+  port_map: "9001"
+  scheme: http
+  tagline:
+    en_US: Your all-in-one self-hosted dev environment
+    fr_FR: Ton environnement de developpement tout-en-un
+  title:
+    en_US: CodeLab
+    fr_FR: CodeLab
+
 services:
 
-  app-manager:
-    image: ghcr.io/lucasrtn/codelab-app-manager:latest
-    container_name: codelab-app-manager
+  # Genere une seule fois le mot de passe Postgres et le depose dans un
+  # volume partage. Aucune etape manuelle requise avant le premier
+  # "docker compose up" declenche par l'import ZimaOS.
+  codelab-init:
+    image: alpine:3.20
+    container_name: codelab-init
+    restart: "no"
+    volumes:
+      - codelab-config:/var/lib/codelab/config
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mkdir -p /var/lib/codelab/config
+        if [ ! -s /var/lib/codelab/config/postgres_password ]; then
+          head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > /var/lib/codelab/config/postgres_password
+          echo "[codelab-init] mot de passe Postgres genere."
+        else
+          echo "[codelab-init] mot de passe Postgres deja present, rien a faire."
+        fi
+        chmod 600 /var/lib/codelab/config/postgres_password
+    networks:
+      - codelab
+
+
+  postgres:
+    image: postgres:18
+    container_name: codelab-postgres
     restart: unless-stopped
 
-    ports:
-      - "9001:9001"
+    environment:
+      POSTGRES_DB: codelab
+      POSTGRES_USER: codelab
+      # Lu nativement par l'image officielle postgres au demarrage.
+      POSTGRES_PASSWORD_FILE: /var/lib/codelab/config/postgres_password
 
     volumes:
-      - codelab-app-manager:/var/lib/codelab/app-manager
-      - codelab-config:/var/lib/codelab/config
-      - /DATA/AppData/codelab/workspace:/workspace
+      # POSTGRES_DATA_PATH : personnalisable a l'install (champ ZimaOS).
+      # Repli par defaut si non renseigne : /DATA/AppData/codelab/postgres.
+      - ${POSTGRES_DATA_PATH:-/DATA/AppData/codelab/postgres}:/var/lib/postgresql
+      - codelab-config:/var/lib/codelab/config:ro
 
-    environment:
-      APP_MANAGER_DIR: /opt/codelab/app-manager
-      APP_MANAGER_STATE: /var/lib/codelab/app-manager
-      APP_MANAGER_ROOT: /workspace
-      MANAGER_PORT: "9001"
+    depends_on:
+      codelab-init:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codelab -d codelab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
     networks:
       - codelab
@@ -32,52 +88,31 @@ services:
       - "2222:22"
 
     environment:
+      SSH_PUBLIC_KEY: ${SSH_PUBLIC_KEY}
       PGHOST: codelab-postgres
       PGPORT: "5432"
       PGDATABASE: codelab
       PGUSER: codelab
-
-    secrets:
-      - postgres_password
+      PGPASSWORD_FILE: /var/lib/codelab/config/postgres_password
 
     volumes:
-      - /DATA/AppData/codelab/workspace:/workspace
+      # WORKSPACE_PATH : personnalisable a l'install, meme mecanisme.
+      # Repli par defaut : /DATA/AppData/codelab/workspace. Doit pointer
+      # vers le meme dossier sur les 4 services qui le montent.
+      - ${WORKSPACE_PATH:-/DATA/AppData/codelab/workspace}:/workspace
       - codelab-dev-ssh:/home/vscode/.ssh
+      - codelab-config:/var/lib/codelab/config:ro
 
     depends_on:
       postgres:
         condition: service_healthy
 
-    networks:
-      - codelab
-
-
-  postgres:
-    image: postgres:18
-    container_name: codelab-postgres
-    restart: unless-stopped
-
-    environment:
-      POSTGRES_DB: codelab
-      POSTGRES_USER: codelab
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-
-    secrets:
-      - postgres_password
-
-    volumes:
-      - /DATA/AppData/codelab/postgres:/var/lib/postgresql
-
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U codelab -d codelab"
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
+    x-casaos:
+      envs:
+        - container: SSH_PUBLIC_KEY
+          description:
+            en_US: "Your public SSH key (contents of e.g. ~/.ssh/id_ed25519.pub) to connect as the 'vscode' user."
+            fr_FR: "Ta cle publique SSH (contenu de ~/.ssh/id_ed25519.pub par exemple) pour te connecter en tant qu'utilisateur 'vscode'."
 
     networks:
       - codelab
@@ -94,14 +129,30 @@ services:
     environment:
       DAGSTER_HOME: /opt/dagster/home
       PYTHONUNBUFFERED: "1"
+      # Permet a "-m definitions" de resoudre /workspace/definitions.py
+      # (monte en volume) plutot que la copie embarquee dans l'image.
+      PYTHONPATH: /workspace
+      DAGSTER_PG_HOST: codelab-postgres
+      DAGSTER_PG_PORT: "5432"
+      DAGSTER_PG_DB: codelab
+      DAGSTER_PG_USER: codelab
+      DAGSTER_PG_PASSWORD_FILE: /var/lib/codelab/config/postgres_password
 
     volumes:
       - codelab-dagster-home:/opt/dagster/home
-      - /DATA/AppData/codelab/workspace:/workspace
+      - ${WORKSPACE_PATH:-/DATA/AppData/codelab/workspace}:/workspace
+      - codelab-config:/var/lib/codelab/config:ro
 
     depends_on:
       postgres:
         condition: service_healthy
+
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:3000')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
     networks:
       - codelab
@@ -119,10 +170,17 @@ services:
     environment:
       DAGSTER_HOME: /opt/dagster/home
       PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /workspace
+      DAGSTER_PG_HOST: codelab-postgres
+      DAGSTER_PG_PORT: "5432"
+      DAGSTER_PG_DB: codelab
+      DAGSTER_PG_USER: codelab
+      DAGSTER_PG_PASSWORD_FILE: /var/lib/codelab/config/postgres_password
 
     volumes:
       - codelab-dagster-home:/opt/dagster/home
-      - /DATA/AppData/codelab/workspace:/workspace
+      - ${WORKSPACE_PATH:-/DATA/AppData/codelab/workspace}:/workspace
+      - codelab-config:/var/lib/codelab/config:ro
 
     depends_on:
       postgres:
@@ -132,19 +190,42 @@ services:
       - codelab
 
 
+  app-manager:
+    image: ghcr.io/lucasrtn/codelab-app-manager:latest
+    container_name: codelab-app-manager
+    restart: unless-stopped
+
+    ports:
+      - "9001:9001"
+
+    volumes:
+      - codelab-app-manager:/var/lib/codelab/app-manager
+      - ${WORKSPACE_PATH:-/DATA/AppData/codelab/workspace}:/workspace
+
+    environment:
+      APP_MANAGER_DIR: /opt/codelab/app-manager
+      APP_MANAGER_STATE: /var/lib/codelab/app-manager
+      APP_MANAGER_ROOT: /workspace
+      MANAGER_PORT: "9001"
+
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:9001/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+    networks:
+      - codelab
+
+
 volumes:
-  codelab-app-manager:
   codelab-config:
+  codelab-app-manager:
   codelab-dev-ssh:
   codelab-dagster-home:
 
 
-secrets:
-  postgres_password:
-    file: /DATA/AppData/codelab/config/postgres/password
-
-
 networks:
   codelab:
-    external: true
     name: codelab_codelab
