@@ -2,13 +2,21 @@ FROM python:3.13-slim
 
 ARG DAGSTER_VERSION=1.13.7
 
-ENV PYTHONUNBUFFERED=1 DAGSTER_HOME=/opt/dagster/home
-
 WORKDIR /opt/dagster
 
-RUN pip install --no-cache-dir "dagster==${DAGSTER_VERSION}" "dagster-webserver==${DAGSTER_VERSION}"
+ENV DAGSTER_HOME=/opt/dagster/home
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN mkdir -p /opt/dagster/home /workspace
+RUN pip install --no-cache-dir \
+    "dagster==${DAGSTER_VERSION}" \
+    "dagster-webserver==${DAGSTER_VERSION}" \
+    "dagster-postgres==${DAGSTER_VERSION}" \
+    "dagster-docker==${DAGSTER_VERSION}"
+
+RUN mkdir -p /opt/dagster/home
+
+COPY dagster/definitions.py /opt/dagster/definitions.py
 
 EXPOSE 3000
 
