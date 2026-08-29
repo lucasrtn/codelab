@@ -16,8 +16,15 @@ RUN pip install --no-cache-dir \
 
 RUN mkdir -p /opt/dagster/home
 
-COPY dagster/definitions.py /opt/dagster/definitions.py
+# Copies "par defaut", jamais utilisees directement : entrypoint.sh ne les
+# deploie que si /workspace (volume utilisateur) ou DAGSTER_HOME (volume
+# d'etat) sont vides, au tout premier demarrage.
+COPY dagster/definitions.py /opt/dagster/definitions.default.py
+COPY dagster/dagster.yaml /opt/dagster/dagster.yaml.default
+COPY dagster/entrypoint.sh /opt/dagster/entrypoint.sh
+RUN chmod +x /opt/dagster/entrypoint.sh
 
 EXPOSE 3000
 
+ENTRYPOINT ["/opt/dagster/entrypoint.sh"]
 CMD ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-m", "definitions"]
