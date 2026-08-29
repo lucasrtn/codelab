@@ -1,175 +1,168 @@
 services:
+
   app-manager:
     build:
       context: .
       dockerfile: app-manager/Dockerfile
-    image: ghcr.io/lucasrtn/codelab-app-manager:latest
+    image: codelab-app-manager:latest
     container_name: codelab-app-manager
     restart: unless-stopped
+
     ports:
       - "9001:9001"
+
     volumes:
       - codelab-app-manager:/var/lib/codelab/app-manager
       - codelab-config:/var/lib/codelab/config
       - /DATA/AppData/codelab/workspace:/workspace
+
     environment:
       APP_MANAGER_DIR: /opt/codelab/app-manager
       APP_MANAGER_STATE: /var/lib/codelab/app-manager
       APP_MANAGER_ROOT: /workspace
       MANAGER_PORT: "9001"
-    networks: [codelab]
+
+    networks:
+      - codelab
+
 
   dev:
     build:
       context: .
       dockerfile: dev/Dockerfile
-    image: ghcr.io/lucasrtn/codelab-dev:latest
+    image: codelab-dev:latest
     container_name: codelab-dev
     restart: unless-stopped
+
     ports:
       - "2222:22"
+
     environment:
-      SSH_PUBLIC_KEY: "${SSH_PUBLIC_KEY}"
-      PGHOST: "codelab-postgres"
+      PGHOST: codelab-postgres
       PGPORT: "5432"
-      PGDATABASE: "codelab"
-      PGUSER: "codelab"
-    secrets: [postgres_password]
+      PGDATABASE: codelab
+      PGUSER: codelab
+
+    secrets:
+      - postgres_password
+
     volumes:
       - /DATA/AppData/codelab/workspace:/workspace
       - codelab-dev-ssh:/home/vscode/.ssh
+
     depends_on:
       postgres:
         condition: service_healthy
-    networks: [codelab]
+
+    networks:
+      - codelab
+
 
   postgres:
     image: postgres:18
     container_name: codelab-postgres
     restart: unless-stopped
+
     environment:
-      POSTGRES_DB: "codelab"
-      POSTGRES_USER: "codelab"
+      POSTGRES_DB: codelab
+      POSTGRES_USER: codelab
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    secrets: [postgres_password]
+
+    secrets:
+      - postgres_password
+
     volumes:
       - /DATA/AppData/codelab/postgres:/var/lib/postgresql
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U codelab -d codelab"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U codelab -d codelab"
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
-    networks: [codelab]
+
+    networks:
+      - codelab
+
 
   dagster:
     build:
       context: .
       dockerfile: dagster/Dockerfile
-    image: ghcr.io/lucasrtn/codelab-dagster:latest
+    image: codelab-dagster:latest
     container_name: codelab-dagster
     restart: unless-stopped
-    environment:
-      DAGSTER_HOME: /opt/dagster/home
+
     ports:
       - "3000:3000"
+
+    environment:
+      DAGSTER_HOME: /opt/dagster/home
+      PYTHONUNBUFFERED: "1"
+
     volumes:
       - codelab-dagster-home:/opt/dagster/home
       - /DATA/AppData/codelab/workspace:/workspace
-    networks: [codelab]
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - codelab
+
 
   dagster-daemon:
     build:
       context: .
       dockerfile: dagster/Dockerfile
-    image: ghcr.io/lucasrtn/codelab-dagster:latest
-    container_name: codelab-dagster-daemon
-    restart: unless-stopped
-    command: ["dagster-daemon", "run"]
-    environment:
-      DAGSTER_HOME: /opt/dagster/home
-    volumes:
-      - codelab-dagster-home:/opt/dagster/home
-      - /DATA/AppData/codelab/workspace:/workspace
-    networks: [codelab]
-
-volumes:
-  codelab-app-manager:
-  codelab-config:
-  codelab-dev-ssh:
-  codelab-dagster-home:
-
-secrets:
-  postgres_password:
-    file: /DATA/AppData/codelab/config/postgres/password
-
-networks:
-  codelab:
-    external: true
-    name: codelab_codelab
-    networks:
-      - codelab
-
-  dagster:
-    build:
-      context: .
-      dockerfile: dagster/Dockerfile
-    container_name: codelab-dagster
-    restart: unless-stopped
-    environment:
-      DAGSTER_HOME: /opt/dagster/home
-    command:
-      - dagster-webserver
-      - -h
-      - 0.0.0.0
-      - -p
-      - "3000"
-      - -w
-      - /opt/dagster/code/workspace.yaml
-
-    ports:
-      - "3000:3000"
-
-    volumes:
-      - codelab-dagster-home:/opt/dagster/home
-      - ./dagster/dagster.yaml:/opt/dagster/home/dagster.yaml:ro
-      - ./dagster_code:/opt/dagster/code:ro
-      - /DATA/AppData/codelab/workspace:/workspace
-
-    networks:
-      - codelab
-
-  dagster-daemon:
-    build:
-      context: .
-      dockerfile: dagster/Dockerfile
+    image: codelab-dagster:latest
     container_name: codelab-dagster-daemon
     restart: unless-stopped
 
     command:
       - dagster-daemon
       - run
-      - --workspace
-      - /opt/dagster/code/workspace.yaml
 
     environment:
       DAGSTER_HOME: /opt/dagster/home
+      PYTHONUNBUFFERED: "1"
 
     volumes:
       - codelab-dagster-home:/opt/dagster/home
-      - ./dagster/dagster.yaml:/opt/dagster/home/dagster.yaml:ro
-      - ./dagster_code:/opt/dagster/code:ro
       - /DATA/AppData/codelab/workspace:/workspace
+
+    depends_on:
+      postgres:
+        condition: service_healthy
 
     networks:
       - codelab
 
+
 volumes:
+
   codelab-app-manager:
+
   codelab-config:
+
   codelab-dev-ssh:
+
   codelab-dagster-home:
 
 
+secrets:
+
+  postgres_password:
+    file: /DATA/AppData/codelab/config/postgres/password
+
+
 networks:
+
   codelab:
+    external: true
+    name: codelab_codelab
