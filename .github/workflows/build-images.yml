@@ -1,8 +1,16 @@
-name: Build & Push CodeLab images
+name: Build & push CodeLab images
 
-# Reconstruit les 3 images des lors qu'un de leurs dossiers, ou le compose,
-# change sur main. "workflow_dispatch" permet aussi un rebuild manuel
-# (utile apres un simple changement de tag de version Dagster, etc.).
+# Deux declencheurs distincts :
+#
+#   1. Push sur main touchant un dossier de service -> reconstruit et publie
+#      en "latest" + SHA court. C'est le flux courant, pour du developpement.
+#
+#   2. Tag Git au format "<service>-vX.Y.Z" (ex. app-manager-v1.2.0) ->
+#      publie une image figee "codelab-<service>:X.Y.Z", jamais reecrite
+#      ensuite. Sert a marquer une version connue-stable, pour pouvoir y
+#      revenir en changeant juste le tag d'image dans docker-compose.yml.
+#      Un tag ne touche jamais "latest" ni ne reconstruit les autres
+#      services : seul celui dont le prefixe correspond est concerne.
 on:
   push:
     branches: [main]
@@ -12,6 +20,10 @@ on:
       - "app-manager/**"
       - "docker-compose.yml"
       - ".github/workflows/build-images.yml"
+    tags:
+      - "dev-v*.*.*"
+      - "dagster-v*.*.*"
+      - "app-manager-v*.*.*"
   workflow_dispatch: {}
 
 concurrency:
@@ -31,22 +43,44 @@ jobs:
         include:
           - name: codelab-dev
             dockerfile: dev/Dockerfile
+            tag_prefix: dev
           - name: codelab-dagster
             dockerfile: dagster/Dockerfile
+            tag_prefix: dagster
           - name: codelab-app-manager
             dockerfile: app-manager/Dockerfile
+            tag_prefix: app-manager
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Un tag "app-manager-v1.2.0" ne doit reconstruire QUE codelab-app-manager,
+      # pas les 2 autres services du matrix. Sur un push de branche normal,
+      # tout le monde tourne comme avant (filtre deja fait par "paths").
+      - name: Determiner si ce service est concerne par ce declencheur
+        id: gate
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            case "${{ github.ref_name }}" in
+              ${{ matrix.tag_prefix }}-v*) echo "run=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "run=false" >> "$GITHUB_OUTPUT" ;;
+            esac
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: QEMU (pour les builds arm64 sur runner amd64)
+        if: steps.gate.outputs.run == 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: Buildx
+        if: steps.gate.outputs.run == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Connexion a ghcr.io
+        if: steps.gate.outputs.run == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -54,18 +88,21 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Metadonnees / tags
+        if: steps.gate.outputs.run == 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
           tags: |
-            type=raw,value=latest
-            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref_type != 'tag' }}
+            type=sha,format=short,enable=${{ github.ref_type != 'tag' }}
+            type=match,pattern=${{ matrix.tag_prefix }}-v(.*),group=1,enable=${{ github.ref_type == 'tag' }}
 
       # Contexte = racine du repo : les Dockerfiles font
       # "COPY dev/requirements.txt", "COPY dagster/definitions.py", etc.,
       # des chemins relatifs a la racine, pas a leur propre dossier.
       - name: Build & push ${{ matrix.name }}
+        if: steps.gate.outputs.run == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
