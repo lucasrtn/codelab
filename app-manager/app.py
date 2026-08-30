@@ -21,11 +21,7 @@ identifiants sont aussi recopies dans credentials.env, partage avec
 codelab-postgres, pour consultation directe depuis le disque du ZimaOS.
 
 Interface : barre laterale a gauche (Vue d'ensemble / Projets / Logs).
-Parametres n'est plus dans la barre laterale : accessible via le bouton
-compte en haut a droite de chaque page. Vue d'ensemble affiche des
-statistiques et graphiques (barres CPU/memoire par app), pas d'actions
-rapides. Projets se limite a la grille des cartes + une tuile "Nouveau
-projet" en derniere position, sans bandeau de stats ni bouton separe.
+Parametres accessible via le bouton compte en haut a droite de chaque page.
 """
 import json
 import os
@@ -68,34 +64,44 @@ _login_attempts = {}  # ip -> [timestamps des echecs recents]
 
 # --------------------------- bootstrap secrets ---------------------------
 
-def upsert_shared_env(pairs):
-    """Ecrit/met a jour des paires CLE=valeur dans credentials.env, partage
-    avec codelab-postgres (/DATA/AppData/codelab/config/credentials.env sur
-    le disque du ZimaOS -- pas de "." en tete de nom, le navigateur de
-    fichiers ZimaOS ne propose pas d'afficher les fichiers caches). Ne touche
-    qu'aux cles listees ici, laisse celles d'un autre service (ex.
-    POSTGRES_*) intactes -- meme logique que le cote codelab-postgres dans
-    docker-compose.yml, pour que les deux cohabitent sans jamais s'ecraser
-    l'un l'autre."""
+def upsert_shared_block(name, comment_lines, pairs):
+    """Ecrit/met a jour un BLOC entier (commentaires + cles) dans
+    credentials.env, partage avec codelab-postgres
+    (/DATA/AppData/codelab/config/credentials.env sur le disque du ZimaOS --
+    pas de "." en tete de nom, le navigateur de fichiers ZimaOS ne propose
+    pas d'afficher les fichiers caches). Le bloc est delimite par des
+    marqueurs "# ===== <name> =====" / "# ===== /<name> =====" et remplace
+    entierement a chaque appel -- pas juste les lignes CLE=valeur, sinon
+    les commentaires documentant ce bloc s'accumuleraient en double a
+    chaque redemarrage. Les blocs des autres services (ex. codelab-postgres)
+    restent intacts quel que soit l'ordre de demarrage : meme logique que
+    cote codelab-postgres dans docker-compose.yml."""
     try:
         os.makedirs(SHARED_CONFIG_DIR, exist_ok=True)
+        start, end = f"# ===== {name} =====", f"# ===== /{name} ====="
         existing = []
         if os.path.exists(SHARED_ENV_FILE):
             with open(SHARED_ENV_FILE) as f:
-                existing = f.readlines()
-        keys = set(pairs.keys())
-        kept = [line for line in existing
-                if not any(line.startswith(k + "=") for k in keys)]
+                existing = f.read().splitlines()
+        kept, skip = [], False
+        for line in existing:
+            if line == start:
+                skip = True
+                continue
+            if line == end:
+                skip = False
+                continue
+            if not skip:
+                kept.append(line)
+        block = [start] + list(comment_lines) + [f"{k}={v}" for k, v in pairs.items()] + [end]
         with open(SHARED_ENV_FILE, "w") as f:
-            f.writelines(kept)
-            for k, v in pairs.items():
-                f.write(f"{k}={v}\n")
+            f.write("\n".join(kept + block) + "\n")
         os.chmod(SHARED_ENV_FILE, 0o600)
     except OSError as e:
         # Le volume partage n'est peut-etre pas monte (ex. test local sans
         # docker-compose) -- ne bloque jamais le demarrage du service pour
         # ca, c'est une commodite, pas une dependance critique.
-        print(f"[app-manager] .env partage non ecrit ({e}), ignore.", flush=True)
+        print(f"[app-manager] credentials.env partage non ecrit ({e}), ignore.", flush=True)
 
 
 def bootstrap_secrets():
@@ -113,10 +119,20 @@ def bootstrap_secrets():
     with open(SECRET_KEY_FILE) as f:
         flask_app.secret_key = f.read().strip()
 
-    upsert_shared_env({
-        "APP_MANAGER_URL": "http://<IP-ZimaOS>:9001",
-        "APP_MANAGER_ADMIN_PASSWORD": admin_password() or "",
-    })
+    upsert_shared_block(
+        "codelab-app-manager",
+        [
+            "# Panneau web de gestion des applications deployees (http://<IP>:9001/).",
+            "# APP_MANAGER_ADMIN_PASSWORD : mot de passe de connexion au panneau.",
+            "# APP_MANAGER_SESSION_SECRET : cle de signature des sessions -- la",
+            "#   changer deconnecte tout le monde ; ne jamais la partager.",
+        ],
+        {
+            "APP_MANAGER_URL": "http://<IP-ZimaOS>:9001",
+            "APP_MANAGER_ADMIN_PASSWORD": admin_password() or "",
+            "APP_MANAGER_SESSION_SECRET": flask_app.secret_key,
+        },
+    )
 
 
 def admin_password():
