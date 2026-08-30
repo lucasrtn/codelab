@@ -46,6 +46,14 @@ EXPOSE 22
 # fois. On les genere une seule fois dans le volume persistant
 # HOST_KEYS_DIR, puis on les recopie vers /etc/ssh a chaque demarrage :
 # meme empreinte tant que HOST_KEYS_DIR n'est pas efface.
+#
+# authorized_keys : AJOUTE la cle de SSH_PUBLIC_KEY si elle n'y est pas
+# deja, plutot que d'ecraser tout le fichier a chaque demarrage. Deux
+# consequences voulues : une cle ajoutee a la main (docker exec) ou
+# deposee par un demarrage precedent n'est jamais perdue, et plusieurs
+# appareils peuvent cohabiter dans le fichier au lieu de se remplacer
+# l'un l'autre. "grep -qxF" compare la ligne entiere, exactement, pour
+# eviter les doublons a chaque redemarrage.
 CMD ["/bin/bash", "-lc", "\
     HOST_KEYS_DIR=/etc/ssh/host_keys; \
     mkdir -p \"$HOST_KEYS_DIR\"; \
@@ -58,11 +66,12 @@ CMD ["/bin/bash", "-lc", "\
     chmod 600 /etc/ssh/ssh_host_*_key && \
     mkdir -p /home/vscode/.ssh && \
     chmod 700 /home/vscode/.ssh && \
-    if [ -n \"${SSH_PUBLIC_KEY}\" ]; then \
-        printf '%s\\n' \"${SSH_PUBLIC_KEY}\" > /home/vscode/.ssh/authorized_keys; \
+    touch /home/vscode/.ssh/authorized_keys && \
+    if [ -n \"${SSH_PUBLIC_KEY}\" ] && ! grep -qxF \"${SSH_PUBLIC_KEY}\" /home/vscode/.ssh/authorized_keys; then \
+        printf '%s\\n' \"${SSH_PUBLIC_KEY}\" >> /home/vscode/.ssh/authorized_keys; \
     fi && \
     chown -R vscode:vscode /home/vscode/.ssh && \
-    chmod 600 /home/vscode/.ssh/authorized_keys 2>/dev/null || true && \
+    chmod 600 /home/vscode/.ssh/authorized_keys && \
     { \
         [ -n \"${PGHOST}\" ] && echo \"export PGHOST=$(printf '%q' \"${PGHOST}\")\"; \
         [ -n \"${PGPORT}\" ] && echo \"export PGPORT=$(printf '%q' \"${PGPORT}\")\"; \
