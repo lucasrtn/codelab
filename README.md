@@ -48,7 +48,7 @@ recuperer).
 **Tous les identifiants au meme endroit** — mot de passe Postgres, mot de passe admin app-manager — sont
 regroupes dans un fichier lisible directement depuis le disque du ZimaOS, sans `docker exec` :
 ```bash
-cat /DATA/AppData/codelab/config/.env
+cat /DATA/AppData/codelab/config/credentials.env
 ```
 Chaque service y ecrit ses propres lignes au demarrage (prefixees `POSTGRES_` / `APP_MANAGER_`) ; rien a taper
 a la main, rien a chercher dans quel conteneur exec. L'onglet **Parametres** du panneau app-manager affiche
