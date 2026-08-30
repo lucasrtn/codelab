@@ -50,7 +50,7 @@ services:
         # n'offre pas d'option pour afficher les fichiers caches.
         #
         # Remplacement par BLOC entier (commentaires inclus), delimite par
-        # des marqueurs "# ===== <nom> =====" / "# ===== /<nom> =====" --
+        # des marqueurs "# ===== NOM_DU_SERVICE =====" / "# ===== /NOM_DU_SERVICE =====" --
         # pas juste par prefixe de cle, sinon les commentaires documentant
         # chaque service s'accumuleraient en double a chaque redemarrage.
         # Chaque service ne touche qu'a son propre bloc, les autres restent
