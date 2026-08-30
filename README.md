@@ -40,17 +40,19 @@ python3 -c "import psycopg; print(psycopg.connect().execute('SELECT version();')
 ```
 
 **App-manager** : `http://<IP-ZimaOS>:9001/` — demarrer/arreter tes apps deployees depuis `/workspace`, consulter
-leurs logs. Protege par mot de passe, genere automatiquement au premier demarrage :
-```bash
-docker exec codelab-app-manager cat /var/lib/codelab/app-manager/admin_password
-```
+leurs logs. Protege par mot de passe, genere automatiquement au premier demarrage (voir ci-dessous pour le
+recuperer).
 
 **Dagster** : `http://<IP-ZimaOS>:3000/` — charge `/workspace/definitions.py` comme code Dagster.
 
-**Mot de passe Postgres brut** (pour un client SQL externe comme DBeaver) :
+**Tous les identifiants au meme endroit** — mot de passe Postgres, mot de passe admin app-manager — sont
+regroupes dans un fichier lisible directement depuis le disque du ZimaOS, sans `docker exec` :
 ```bash
-docker exec codelab-postgres cat /var/lib/codelab/config/postgres_password
+cat /DATA/AppData/codelab/config/.env
 ```
+Chaque service y ecrit ses propres lignes au demarrage (prefixees `POSTGRES_` / `APP_MANAGER_`) ; rien a taper
+a la main, rien a chercher dans quel conteneur exec. L'onglet **Parametres** du panneau app-manager affiche
+aussi la commande ci-dessus, prete a copier.
 
 ## Persistance des donnees
 
