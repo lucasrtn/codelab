@@ -5,7 +5,7 @@ WORKDIR /opt/codelab/app-manager
 ENV PYTHONUNBUFFERED=1 
 ENV PYTHONDONTWRITEBYTECODE=1 
 
-RUN pip install --no-cache-dir flask requests
+RUN pip install --no-cache-dir flask psutil requests
 
 COPY app-manager/app.py /opt/codelab/app-manager/app.py 
 
