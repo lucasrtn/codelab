@@ -86,6 +86,18 @@ services:
         POSTGRES_USER=codelab
         POSTGRES_PASSWORD=$(cat /var/lib/codelab/config/postgres_password)"
 
+        upsert_block "codelab-dagster" "# codelab-dagster (interface :3000) et codelab-dagster-daemon
+        # n'ont pas d'identifiant separe : ils utilisent cette meme base
+        # Postgres pour stocker runs, logs d'evenements et planifications
+        # (voir dagster/dagster.yaml). Variables telles que lues par ces
+        # deux conteneurs (DAGSTER_PG_*, valeurs identiques a POSTGRES_*
+        # ci-dessus).
+        DAGSTER_PG_HOST=codelab-postgres
+        DAGSTER_PG_PORT=5432
+        DAGSTER_PG_DB=codelab
+        DAGSTER_PG_USER=codelab
+        DAGSTER_PG_PASSWORD=$(cat /var/lib/codelab/config/postgres_password)"
+
         upsert_block "codelab-dev" "# Pas de mot de passe : l'acces SSH (port 2222) se fait uniquement par
         # cle publique (variable SSH_PUBLIC_KEY, saisie a l'installation).
         # Les cles hote SSH (identite du serveur, pas un mot de passe) sont
@@ -149,9 +161,14 @@ services:
       - /DATA/AppData/codelab/dev-host-keys:/etc/ssh/host_keys
       - /DATA/AppData/codelab/config:/var/lib/codelab/config:ro
 
-    depends_on:
-      codelab-postgres:
-        condition: service_healthy
+    # Pas de "depends_on: codelab-postgres: condition: service_healthy" ici,
+    # volontairement -- observe a plusieurs reprises que ZimaOS laisse ce
+    # conteneur a l'etat "Created" (jamais demarre) si Postgres met un peu
+    # de temps a devenir "healthy" au moment de l'installation. codelab-dev
+    # n'a pas besoin que Postgres soit deja pret a cet instant precis : les
+    # identifiants sont lus depuis un fichier au demarrage, et une vraie
+    # connexion a la base n'est necessaire que lorsque l'utilisateur s'en
+    # sert depuis une session SSH, pas au boot du conteneur lui-meme.
 
     x-casaos:
       envs:
