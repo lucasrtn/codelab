@@ -6,18 +6,22 @@ applications est gere directement par ce service.
 
 ## Ce que fait le service
 
-- Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise autour d'une **barre laterale a gauche, reductible**
-  (icone CodeLab en haut, bouton dedie en bas pour la reduire/etendre, etat retenu entre les sessions) avec 3
-  sections, et un **bouton profil** en haut a droite de chaque page, a deux niveaux :
+- Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise autour d'un **bandeau fixe pleine largeur en haut** :
+  a gauche, un bouton dedie pour reduire/etendre la barre laterale, puis le logo CodeLab (fige, toujours
+  visible que la barre soit repliee ou non — cliquer dessus ramene a la Vue d'ensemble depuis n'importe quelle
+  page) ; a droite, le **bouton profil**. En dessous, la barre laterale reductible (etat retenu entre les
+  sessions) avec 2 sections, et le contenu principal :
   - **Vue d'ensemble** — page d'accueil par defaut : compteurs (total / en ligne / arretees), barre de sante
     (repartition en ligne / arretee / erreur), ressources cumulees (CPU/memoire), et deux graphiques en barres
     (CPU et memoire par application en ligne). Pas d'actions rapides — uniquement des statistiques.
-  - **Projets** — uniquement la grille des cartes (icone, statut, metriques CPU/memoire en direct, recherche et
-    tri) et une tuile "Nouveau projet" en derniere position pour la creation. Pas de bandeau de stats ici (deja
-    dans Vue d'ensemble), pas de bouton "Ajouter" separe (la tuile en tient lieu), et pas de message "aucun
-    projet" quand la grille est vide — juste la tuile.
-  - **Logs** — selecteur d'application + flux de journal en direct (memes SSE que le volet rapide ouvrable
-    depuis une carte, juste en plein format).
+  - **Projets** — grille de cartes volontairement minimales : uniquement l'icone et le nom du projet. Cliquer
+    sur une carte ouvre le site dans un nouvel onglet. Un menu **"..."** par carte donne acces a Modifier
+    (masque tant que l'app tourne), Activer/Desactiver, Voir les logs et Supprimer. Une pastille discrete sur
+    l'icone (verte/grise/rouge) indique le statut sans surcharger la carte. Une tuile "Nouveau projet" en
+    derniere position remplace le bouton "Ajouter" separe. Pas de bandeau de stats ici (deja dans Vue
+    d'ensemble), pas de message "aucun projet" quand la grille est vide — juste la tuile.
+  - **Logs** — plus d'onglet dedie : accessibles uniquement via "Voir les logs" dans le menu "..." d'une
+    carte, dans une **pop-up centree** (comme Modifier), pas un panneau lateral.
   - **Compte, 1er niveau** — clic sur l'icone de profil (generique, pas le logo CodeLab) en haut a droite :
     mini-menu deroulant avec seulement **Parametres** et **Deconnexion**, pour un acces rapide sans changer de
     page.
