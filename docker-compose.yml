@@ -9,7 +9,7 @@ x-casaos:
     fr_FR: Environnement de developpement tout-en-un — Postgres, SSH + VS Code, orchestration Dagster et un gestionnaire d'applications.
   icon: https://raw.githubusercontent.com/lucasrtn/codelab/main/icon.png
   index: /
-  main: app-manager
+  main: codelab-app-manager
   port_map: "9001"
   scheme: http
   tagline:
@@ -21,15 +21,16 @@ x-casaos:
 
 services:
 
-  # Genere une seule fois le mot de passe Postgres et le depose dans un
-  # volume partage. Aucune etape manuelle requise avant le premier
-  # "docker compose up" declenche par l'import ZimaOS.
-  codelab-init:
-    image: alpine:3.20
-    container_name: codelab-init
-    restart: "no"
-    volumes:
-      - codelab-config:/var/lib/codelab/config
+  codelab-postgres:
+    image: postgres:18
+    container_name: codelab-postgres
+    restart: unless-stopped
+
+    # Genere le mot de passe Postgres au tout premier demarrage (s'il
+    # n'existe pas deja dans le volume partage), puis rend la main a
+    # l'entrypoint officiel de l'image. Evite d'avoir un conteneur
+    # d'initialisation a part, qui apparaissait comme un dossier AppData
+    # distinct dans ZimaOS sans y avoir sa place.
     entrypoint:
       - /bin/sh
       - -c
@@ -38,19 +39,10 @@ services:
         mkdir -p /var/lib/codelab/config
         if [ ! -s /var/lib/codelab/config/postgres_password ]; then
           head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > /var/lib/codelab/config/postgres_password
-          echo "[codelab-init] mot de passe Postgres genere."
-        else
-          echo "[codelab-init] mot de passe Postgres deja present, rien a faire."
+          echo "[codelab-postgres] mot de passe genere."
         fi
         chmod 600 /var/lib/codelab/config/postgres_password
-    networks:
-      - codelab
-
-
-  postgres:
-    image: postgres:18
-    container_name: codelab-postgres
-    restart: unless-stopped
+        exec docker-entrypoint.sh postgres
 
     environment:
       POSTGRES_DB: codelab
@@ -59,14 +51,15 @@ services:
       POSTGRES_PASSWORD_FILE: /var/lib/codelab/config/postgres_password
 
     volumes:
-      # POSTGRES_DATA_PATH : personnalisable a l'install (champ ZimaOS).
-      # Repli par defaut si non renseigne : /DATA/AppData/codelab/postgres.
-      - ${POSTGRES_DATA_PATH:-/DATA/AppData/codelab/postgres}:/var/lib/postgresql
-      - codelab-config:/var/lib/codelab/config:ro
-
-    depends_on:
-      codelab-init:
-        condition: service_completed_successfully
+      # Chemin par defaut : /DATA/AppData/codelab/postgres.
+      # ZimaOS affiche ce chemin comme un champ modifiable a l'installation
+      # (les volumes ${VAR} font echouer son parseur -> chemin litteral
+      # obligatoire ici, personnalisation via l'ecran d'install ZimaOS).
+      - /DATA/AppData/codelab/postgres:/var/lib/postgresql
+      # Pas ":ro" ici : c'est ce service qui ecrit le mot de passe. Les
+      # 4 autres services (dev, dagster, dagster-daemon) le montent en
+      # lecture seule plus bas.
+      - /DATA/AppData/codelab/config:/var/lib/codelab/config
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U codelab -d codelab"]
@@ -79,7 +72,7 @@ services:
       - codelab
 
 
-  dev:
+  codelab-dev:
     image: ghcr.io/lucasrtn/codelab-dev:latest
     container_name: codelab-dev
     restart: unless-stopped
@@ -96,15 +89,15 @@ services:
       PGPASSWORD_FILE: /var/lib/codelab/config/postgres_password
 
     volumes:
-      # WORKSPACE_PATH : personnalisable a l'install, meme mecanisme.
-      # Repli par defaut : /DATA/AppData/codelab/workspace. Doit pointer
-      # vers le meme dossier sur les 4 services qui le montent.
-      - ${WORKSPACE_PATH:-/DATA/AppData/codelab/workspace}:/workspace
-      - codelab-dev-ssh:/home/vscode/.ssh
-      - codelab-config:/var/lib/codelab/config:ro
+      # Chemin par defaut : /DATA/AppData/codelab/workspace. Personnalisable
+      # dans l'ecran d'install ZimaOS. Doit rester identique sur les 4
+      # services qui le montent (dev, dagster, dagster-daemon, app-manager).
+      - /DATA/AppData/codelab/workspace:/workspace
+      - /DATA/AppData/codelab/dev-ssh:/home/vscode/.ssh
+      - /DATA/AppData/codelab/config:/var/lib/codelab/config:ro
 
     depends_on:
-      postgres:
+      codelab-postgres:
         condition: service_healthy
 
     x-casaos:
@@ -118,7 +111,7 @@ services:
       - codelab
 
 
-  dagster:
+  codelab-dagster:
     image: ghcr.io/lucasrtn/codelab-dagster:latest
     container_name: codelab-dagster
     restart: unless-stopped
@@ -139,12 +132,12 @@ services:
       DAGSTER_PG_PASSWORD_FILE: /var/lib/codelab/config/postgres_password
 
     volumes:
-      - codelab-dagster-home:/opt/dagster/home
-      - ${WORKSPACE_PATH:-/DATA/AppData/codelab/workspace}:/workspace
-      - codelab-config:/var/lib/codelab/config:ro
+      - /DATA/AppData/codelab/dagster-home:/opt/dagster/home
+      - /DATA/AppData/codelab/workspace:/workspace
+      - /DATA/AppData/codelab/config:/var/lib/codelab/config:ro
 
     depends_on:
-      postgres:
+      codelab-postgres:
         condition: service_healthy
 
     healthcheck:
@@ -158,7 +151,7 @@ services:
       - codelab
 
 
-  dagster-daemon:
+  codelab-dagster-daemon:
     image: ghcr.io/lucasrtn/codelab-dagster:latest
     container_name: codelab-dagster-daemon
     restart: unless-stopped
@@ -178,19 +171,19 @@ services:
       DAGSTER_PG_PASSWORD_FILE: /var/lib/codelab/config/postgres_password
 
     volumes:
-      - codelab-dagster-home:/opt/dagster/home
-      - ${WORKSPACE_PATH:-/DATA/AppData/codelab/workspace}:/workspace
-      - codelab-config:/var/lib/codelab/config:ro
+      - /DATA/AppData/codelab/dagster-home:/opt/dagster/home
+      - /DATA/AppData/codelab/workspace:/workspace
+      - /DATA/AppData/codelab/config:/var/lib/codelab/config:ro
 
     depends_on:
-      postgres:
+      codelab-postgres:
         condition: service_healthy
 
     networks:
       - codelab
 
 
-  app-manager:
+  codelab-app-manager:
     image: ghcr.io/lucasrtn/codelab-app-manager:latest
     container_name: codelab-app-manager
     restart: unless-stopped
@@ -199,8 +192,8 @@ services:
       - "9001:9001"
 
     volumes:
-      - codelab-app-manager:/var/lib/codelab/app-manager
-      - ${WORKSPACE_PATH:-/DATA/AppData/codelab/workspace}:/workspace
+      - /DATA/AppData/codelab/app-manager:/var/lib/codelab/app-manager
+      - /DATA/AppData/codelab/workspace:/workspace
 
     environment:
       APP_MANAGER_DIR: /opt/codelab/app-manager
@@ -217,13 +210,6 @@ services:
 
     networks:
       - codelab
-
-
-volumes:
-  codelab-config:
-  codelab-app-manager:
-  codelab-dev-ssh:
-  codelab-dagster-home:
 
 
 networks:
