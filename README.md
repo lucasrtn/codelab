@@ -40,7 +40,10 @@ python3 -c "import psycopg; print(psycopg.connect().execute('SELECT version();')
 ```
 
 **App-manager** : `http://<IP-ZimaOS>:9001/` — demarrer/arreter tes apps deployees depuis `/workspace`, consulter
-leurs logs.
+leurs logs. Protege par mot de passe, genere automatiquement au premier demarrage :
+```bash
+docker exec codelab-app-manager cat /var/lib/codelab/app-manager/admin_password
+```
 
 **Dagster** : `http://<IP-ZimaOS>:3000/` — charge `/workspace/definitions.py` comme code Dagster.
 
@@ -63,11 +66,61 @@ chaque push sur `main`. **Etape unique a faire a la main** apres le premier run 
 prives par defaut, donc ZimaOS ne peut pas les tirer tant qu'ils ne sont pas passes en **Public**
 (`github.com/lucasrtn?tab=packages` → package → Package settings → Danger Zone → Change visibility).
 
+## Versionner CodeLab (figer une release)
+
+`latest` bouge a chaque push sur `main` — pratique en developpement, risque en production si un changement
+casse quelque chose (comme observe pendant ce projet). CodeLab se versionne **comme un tout** : dev, dagster et
+app-manager sortent toujours ensemble, sous un seul numero — pas de version separee par service.
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Ce tag declenche le workflow, qui reconstruit et publie **les 3 images en meme temps**, toutes avec ce numero :
+`ghcr.io/lucasrtn/codelab-dev:1.0.0`, `codelab-dagster:1.0.0`, `codelab-app-manager:1.0.0`. `latest` n'est pas
+touche.
+
+**Sur GitHub (sans ligne de commande)** : Releases → Create a new release → tag `v1.0.0` (target `main`) →
+Publish release. Gabarit a reprendre :
+
+- **Titre** : `CodeLab v1.0.0`
+- **Description** :
+  ```
+  Version complete de CodeLab : dev, dagster et app-manager.
+  Images : ghcr.io/lucasrtn/codelab-{dev,dagster,app-manager}:1.0.0
+
+  Changements :
+  - ...
+  ```
+
+**Revenir a cette version precise** : dans `docker-compose.yml`, remplacer le tag `:latest` par `:1.0.0` sur les
+**3 services** (`codelab-dev`, `codelab-dagster`, `codelab-app-manager`), puis reimporter le compose sur ZimaOS.
+
+**Lister les versions disponibles** :
+```bash
+git tag -l "v*"
+```
+ou visuellement sur `github.com/lucasrtn/codelab/releases`, ou sur `github.com/lucasrtn?tab=packages` pour
+chaque image individuellement.
+
+## Icone de l'application
+
+Le depot etant prive, `raw.githubusercontent.com/.../icon.png` n'est pas accessible sans authentification —
+ZimaOS n'en a pas. L'icone est donc encodee directement dans `docker-compose.yml`
+(`x-casaos.icon: "data:image/png;base64,..."`), aucune requete externe n'est necessaire pour l'afficher. Le
+fichier source reste `icon.svg`/`icon.png` a la racine du depot, a re-encoder si tu la changes :
+
+```bash
+python3 -c "import base64; print('data:image/png;base64,' + base64.b64encode(open('icon.png','rb').read()).decode())"
+```
+
 ## Organisation du depot
 
 ```text
 codelab/
 ├── docker-compose.yml
+├── icon.svg / icon.png
 ├── .github/workflows/build-images.yml
 ├── dev/           # SSH + VS Code Remote-SSH — voir dev/README.md
 ├── dagster/       # orchestration de jobs — voir dagster/README.md
