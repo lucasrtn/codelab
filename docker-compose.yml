@@ -159,6 +159,8 @@ services:
     command:
       - dagster-daemon
       - run
+      - -m
+      - definitions
 
     environment:
       DAGSTER_HOME: /opt/dagster/home
