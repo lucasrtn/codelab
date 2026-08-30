@@ -7,19 +7,24 @@ applications est gere directement par ce service.
 ## Ce que fait le service
 
 - Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise autour d'un **bandeau fixe pleine largeur en haut** :
-  a gauche, un bouton dedie pour reduire/etendre la barre laterale, puis le logo CodeLab (fige, toujours
-  visible que la barre soit repliee ou non — cliquer dessus ramene a la Vue d'ensemble depuis n'importe quelle
-  page) ; a droite, le **bouton profil**. En dessous, la barre laterale reductible (etat retenu entre les
-  sessions) avec 2 sections, et le contenu principal :
+  a gauche, un bouton dedie pour reduire/etendre la barre laterale (transition douce — cubic-bezier, texte en
+  fondu plutot qu'un `display:none` brutal), puis le logo CodeLab (fige, toujours visible que la barre soit
+  repliee ou non — cliquer dessus ramene a la Vue d'ensemble depuis n'importe quelle page) ; a droite, le
+  **bouton profil**. En dessous, la barre laterale reductible (etat retenu entre les sessions) avec 2 sections,
+  et le contenu principal :
   - **Vue d'ensemble** — page d'accueil par defaut : compteurs (total / en ligne / arretees), barre de sante
     (repartition en ligne / arretee / erreur), ressources cumulees (CPU/memoire), et deux graphiques en barres
     (CPU et memoire par application en ligne). Pas d'actions rapides — uniquement des statistiques.
-  - **Projets** — grille de cartes volontairement minimales : uniquement l'icone et le nom du projet. Cliquer
-    sur une carte ouvre le site dans un nouvel onglet. Un menu **"..."** par carte donne acces a Modifier
-    (masque tant que l'app tourne), Activer/Desactiver, Voir les logs et Supprimer. Une pastille discrete sur
-    l'icone (verte/grise/rouge) indique le statut sans surcharger la carte. Une tuile "Nouveau projet" en
-    derniere position remplace le bouton "Ajouter" separe. Pas de bandeau de stats ici (deja dans Vue
-    d'ensemble), pas de message "aucun projet" quand la grille est vide — juste la tuile.
+  - **Projets** — grille de tuiles compactes façon icônes iOS : l'icône occupe presque toute la tuile, le nom
+    en dessous en petit texte centré, sans bordure ni fond autour (juste l'icône elle-même, deja arrondie).
+    Cliquer sur une tuile ouvre le site dans un nouvel onglet. Un menu **"..."** discret (visible en permanence
+    mais peu contrasté) donne acces a Modifier (masque tant que l'app tourne), Activer/Desactiver, Voir les
+    logs et Supprimer. Une pastille sur l'icone (verte/grise/rouge) indique le statut. Une tuile "Nouveau
+    projet" en derniere position remplace le bouton "Ajouter" separe. **Bascule grille/liste** dans la barre
+    d'outils (preference retenue) : la vue liste garde le meme menu "..." mais affiche icone + nom sur une
+    ligne, plus dense. Pas de bandeau de stats ici (deja dans Vue d'ensemble), pas de message "aucun projet"
+    quand c'est vide — juste la tuile, pas de tri (toujours par ordre alphabetique, recherche disponible en
+    haut).
   - **Logs** — plus d'onglet dedie : accessibles uniquement via "Voir les logs" dans le menu "..." d'une
     carte, dans une **pop-up centree** (comme Modifier), pas un panneau lateral.
   - **Compte, 1er niveau** — clic sur l'icone de profil (generique, pas le logo CodeLab) en haut a droite :
@@ -35,6 +40,11 @@ applications est gere directement par ce service.
   gerees.
 - Protege l'ensemble du panneau et de son API par une **authentification par mot de passe**, generee
   automatiquement au premier demarrage (meme principe que le mot de passe Postgres de `codelab-postgres`).
+
+> **Structuration visuelle** : chaque page regroupe son contenu dans des "zones" (fond legerement different du
+> fond de page, titre de section en majuscules) plutot que de laisser les cartes flotter librement — Vue
+> d'ensemble a une zone "Resume" (les 3 cartes de stats) et une zone "Activite" (les 2 graphiques), Projets a
+> une zone "Projets" (la grille), Parametres a une zone par carte.
 
 ## Fichiers
 
