@@ -38,20 +38,23 @@ applications est gere directement par ce service.
 
 Au tout premier demarrage, un mot de passe admin est genere aleatoirement et ecrit dans
 `STATE_DIR/admin_password` (permissions `600`) — jamais defini par toi, jamais dans le compose. Il est aussi
-recopie dans un `credentials.env` partage avec `codelab-postgres`, lisible directement depuis le disque du ZimaOS sans
-`docker exec` :
+recopie, avec la cle de session, dans un `credentials.env` partage avec `codelab-postgres`, lisible directement
+depuis le disque du ZimaOS sans `docker exec` :
 
 ```bash
 cat /DATA/AppData/codelab/config/credentials.env
 ```
 
-`upsert_shared_env()` n'ecrit que ses propres cles (`APP_MANAGER_*`) dans ce fichier — les lignes `POSTGRES_*`
-deposees par `codelab-postgres` restent intactes, peu importe l'ordre de demarrage des deux services. Voir
-[Fichier `credentials.env` partage](#fichier-credentialsenv-partage) plus bas pour le detail du mecanisme.
+`upsert_shared_block()` n'ecrit que son propre bloc, commentaires inclus (delimite par
+`# ===== codelab-app-manager =====` / `# ===== /codelab-app-manager =====`) — les blocs deposes par
+`codelab-postgres` (et l'en-tete general du fichier) restent intacts, peu importe l'ordre de demarrage des deux
+services. Voir [Fichier `credentials.env` partage](#fichier-credentialsenv-partage) plus bas pour le detail du
+mecanisme.
 
-Les sessions sont signees avec une cle secrete elle aussi generee et persistee (`STATE_DIR/flask_secret_key`),
-donc la connexion survit a un redemarrage du conteneur. Une bascule anti-bruteforce limite les tentatives de
-connexion echouees a 5 par tranche de 5 minutes, par adresse IP.
+Les sessions sont signees avec une cle secrete elle aussi generee et persistee (`STATE_DIR/flask_secret_key`,
+et recopiee dans `credentials.env` sous `APP_MANAGER_SESSION_SECRET`), donc la connexion survit a un redemarrage
+du conteneur. Une bascule anti-bruteforce limite les tentatives de connexion echouees a 5 par tranche de 5
+minutes, par adresse IP.
 
 > **Le proxy `/<nom-app>/...` n'est volontairement pas protege par cette authentification** — seuls le dashboard
 > et son API le sont. Une application que tu deploies reste directement joignable (utile pour tester un
@@ -59,13 +62,17 @@ connexion echouees a 5 par tranche de 5 minutes, par adresse IP.
 
 ## Fichier `credentials.env` partage
 
-`upsert_shared_env()` (dans `bootstrap_secrets()`) ecrit `APP_MANAGER_URL` et `APP_MANAGER_ADMIN_PASSWORD` dans
-`/var/lib/codelab/config/credentials.env` (`/DATA/AppData/codelab/config/credentials.env` cote hote), le meme fichier et le meme
-volume que `codelab-postgres` utilise pour ses propres identifiants (`POSTGRES_*`). Principe : chaque service ne
-touche qu'aux lignes commencant par son propre prefixe, en relisant puis reecrivant le fichier entier a chaque
-demarrage — aucun des deux services n'ecrase jamais les lignes de l'autre, quel que soit l'ordre de demarrage.
-Si le volume partage n'est pas monte (tests locaux hors compose, par exemple), l'ecriture echoue silencieusement
-sans bloquer le demarrage du service — c'est une commodite, pas une dependance critique.
+`upsert_shared_block()` (appelee depuis `bootstrap_secrets()`) ecrit un **bloc entier** — commentaires de
+documentation inclus — dans `/var/lib/codelab/config/credentials.env`
+(`/DATA/AppData/codelab/config/credentials.env` cote hote), le meme fichier et le meme volume que
+`codelab-postgres` utilise pour ses propres identifiants. Le bloc est delimite par des marqueurs
+(`# ===== codelab-app-manager =====` ... `# ===== /codelab-app-manager =====`) et entierement remplace a
+chaque demarrage : toutes les lignes entre les deux marqueurs sont supprimees puis reecrites d'un coup,
+commentaires compris — pas juste les paires `CLE=valeur`, sinon la documentation s'accumulerait en double a
+chaque redemarrage. Les blocs des autres services (l'en-tete general du fichier et `codelab-postgres`, tous
+deux ecrits par `codelab-postgres` dans `docker-compose.yml`) restent intacts, quel que soit l'ordre de
+demarrage. Si le volume partage n'est pas monte (tests locaux hors compose, par exemple), l'ecriture echoue
+silencieusement sans bloquer le demarrage du service — c'est une commodite, pas une dependance critique.
 
 ## Variables d'environnement
 
