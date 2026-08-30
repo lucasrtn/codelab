@@ -6,19 +6,24 @@ applications est gere directement par ce service.
 
 ## Ce que fait le service
 
-- Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise autour d'une **barre laterale a gauche** avec 3
-  sections, et un **bouton compte** en haut a droite de chaque page pour les parametres :
+- Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise autour d'une **barre laterale a gauche, reductible**
+  (icone CodeLab en haut, bouton dedie en bas pour la reduire/etendre, etat retenu entre les sessions) avec 3
+  sections, et un **bouton profil** en haut a droite de chaque page, a deux niveaux :
   - **Vue d'ensemble** — page d'accueil par defaut : compteurs (total / en ligne / arretees), barre de sante
     (repartition en ligne / arretee / erreur), ressources cumulees (CPU/memoire), et deux graphiques en barres
     (CPU et memoire par application en ligne). Pas d'actions rapides — uniquement des statistiques.
   - **Projets** — uniquement la grille des cartes (icone, statut, metriques CPU/memoire en direct, recherche et
     tri) et une tuile "Nouveau projet" en derniere position pour la creation. Pas de bandeau de stats ici (deja
-    dans Vue d'ensemble), pas de bouton "Ajouter" separe (la tuile en tient lieu).
+    dans Vue d'ensemble), pas de bouton "Ajouter" separe (la tuile en tient lieu), et pas de message "aucun
+    projet" quand la grille est vide — juste la tuile.
   - **Logs** — selecteur d'application + flux de journal en direct (memes SSE que le volet rapide ouvrable
     depuis une carte, juste en plein format).
-  - **Parametres du compte** — page dediee, ouverte via le bouton rond en haut a droite (pas dans la barre
-    laterale) : preference d'apparence (Auto / Clair / Sombre) et deconnexion. Pas de commande de copie des
-    identifiants dans l'interface — `credentials.env` est deja directement lisible depuis le disque du ZimaOS.
+  - **Compte, 1er niveau** — clic sur l'icone de profil (generique, pas le logo CodeLab) en haut a droite :
+    mini-menu deroulant avec seulement **Parametres** et **Deconnexion**, pour un acces rapide sans changer de
+    page.
+  - **Compte, 2e niveau** — clic sur **Parametres** dans le mini-menu : page dediee complete (preference
+    d'apparence Auto / Clair / Sombre, deconnexion). Pas de commande de copie des identifiants dans
+    l'interface — `credentials.env` est deja directement lisible depuis le disque du ZimaOS.
 - Pour chaque application activee, lance sa commande de demarrage comme sous-processus, sur un port interne
   attribue automatiquement (plage `9101`–`9140`).
 - Fait office de **reverse-proxy interne** : `http://<IP-ZimaOS>:9001/<nom-app>/` route vers le port interne de
