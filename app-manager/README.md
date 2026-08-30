@@ -6,24 +6,25 @@ applications est gere directement par ce service.
 
 ## Ce que fait le service
 
-- Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise en 3 onglets :
+- Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise autour d'une **barre laterale a gauche** (pas un menu
+  du haut), avec 4 sections :
   - **Vue d'ensemble** — page d'accueil par defaut : compteurs (total / en ligne / arretees), barre de sante
     (repartition en ligne / arretee / erreur), actions rapides (ajouter, aller aux projets, aller aux logs).
   - **Projets** — cartes de toutes les applications enregistrees (icone, statut, metriques CPU/memoire en
     direct, recherche et tri), bouton d'ajout (dossier existant ou modele de demarrage rapide).
   - **Logs** — selecteur d'application + flux de journal en direct (memes SSE que le volet rapide ouvrable
     depuis une carte, juste en plein format).
-- **Menu compte** (avatar en haut a droite) plutot qu'un onglet a part : preference d'apparence (Auto / Clair /
-  Sombre, boutons segmentes plutot qu'un cycle a l'aveugle), commande de lecture des identifiants prete a
-  copier, deconnexion.
+  - **Parametres** — page dediee (pas un menu deroulant) : preference d'apparence (Auto / Clair / Sombre,
+    boutons segmentes) et deconnexion. Pas de commande de copie des identifiants dans l'interface —
+    `credentials.env` est deja directement lisible depuis le disque du ZimaOS (voir plus bas), inutile de la
+    dupliquer ici.
 - Pour chaque application activee, lance sa commande de demarrage comme sous-processus, sur un port interne
   attribue automatiquement (plage `9101`–`9140`).
 - Fait office de **reverse-proxy interne** : `http://<IP-ZimaOS>:9001/<nom-app>/` route vers le port interne de
   l'application correspondante — un seul port a exposer sur ZimaOS, quel que soit le nombre d'applications
   gerees.
 - Protege l'ensemble du panneau et de son API par une **authentification par mot de passe**, generee
-  automatiquement au premier demarrage (meme principe que le mot de passe Postgres de `codelab-postgres`). La
-  commande de recuperation est accessible directement depuis le menu compte, avec un bouton copier.
+  automatiquement au premier demarrage (meme principe que le mot de passe Postgres de `codelab-postgres`).
 
 ## Fichiers
 
