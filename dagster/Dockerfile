@@ -11,8 +11,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 RUN pip install --no-cache-dir \
     "dagster==${DAGSTER_VERSION}" \
     "dagster-webserver==${DAGSTER_VERSION}" \
-    "dagster-postgres==${DAGSTER_VERSION}" \
-    "dagster-docker==${DAGSTER_VERSION}"
+    "dagster-postgres" \
+    "dagster-docker"
 
 RUN mkdir -p /opt/dagster/home
 
