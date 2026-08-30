@@ -33,16 +33,16 @@ applications est gere directement par ce service.
 
 Au tout premier demarrage, un mot de passe admin est genere aleatoirement et ecrit dans
 `STATE_DIR/admin_password` (permissions `600`) — jamais defini par toi, jamais dans le compose. Il est aussi
-recopie dans un `.env` partage avec `codelab-postgres`, lisible directement depuis le disque du ZimaOS sans
+recopie dans un `credentials.env` partage avec `codelab-postgres`, lisible directement depuis le disque du ZimaOS sans
 `docker exec` :
 
 ```bash
-cat /DATA/AppData/codelab/config/.env
+cat /DATA/AppData/codelab/config/credentials.env
 ```
 
 `upsert_shared_env()` n'ecrit que ses propres cles (`APP_MANAGER_*`) dans ce fichier — les lignes `POSTGRES_*`
 deposees par `codelab-postgres` restent intactes, peu importe l'ordre de demarrage des deux services. Voir
-[Fichier `.env` partage](#fichier-env-partage) plus bas pour le detail du mecanisme.
+[Fichier `credentials.env` partage](#fichier-credentialsenv-partage) plus bas pour le detail du mecanisme.
 
 Les sessions sont signees avec une cle secrete elle aussi generee et persistee (`STATE_DIR/flask_secret_key`),
 donc la connexion survit a un redemarrage du conteneur. Une bascule anti-bruteforce limite les tentatives de
@@ -52,10 +52,10 @@ connexion echouees a 5 par tranche de 5 minutes, par adresse IP.
 > et son API le sont. Une application que tu deploies reste directement joignable (utile pour tester un
 > webhook, par exemple), independamment du mot de passe du panneau.
 
-## Fichier `.env` partage
+## Fichier `credentials.env` partage
 
 `upsert_shared_env()` (dans `bootstrap_secrets()`) ecrit `APP_MANAGER_URL` et `APP_MANAGER_ADMIN_PASSWORD` dans
-`/var/lib/codelab/config/.env` (`/DATA/AppData/codelab/config/.env` cote hote), le meme fichier et le meme
+`/var/lib/codelab/config/credentials.env` (`/DATA/AppData/codelab/config/credentials.env` cote hote), le meme fichier et le meme
 volume que `codelab-postgres` utilise pour ses propres identifiants (`POSTGRES_*`). Principe : chaque service ne
 touche qu'aux lignes commencant par son propre prefixe, en relisant puis reecrivant le fichier entier a chaque
 demarrage — aucun des deux services n'ecrase jamais les lignes de l'autre, quel que soit l'ordre de demarrage.
@@ -69,7 +69,7 @@ sans bloquer le demarrage du service — c'est une commodite, pas une dependance
 | `APP_MANAGER_DIR` | Ou vit `app.py` dans l'image (`/opt/codelab/app-manager`) — lecture seule |
 | `APP_MANAGER_STATE` | Ou vivent `apps.json`, les logs, le mot de passe admin et la cle de session — le seul dossier que le service ecrit |
 | `APP_MANAGER_ROOT` | Racine du navigateur de dossiers et des chemins d'applications (`/workspace`) |
-| `APP_MANAGER_SHARED_CONFIG` | Dossier du `.env` partage avec `codelab-postgres` (`/var/lib/codelab/config`) |
+| `APP_MANAGER_SHARED_CONFIG` | Dossier du `credentials.env` partage avec `codelab-postgres` (`/var/lib/codelab/config`) |
 | `MANAGER_PORT` | Port d'ecoute du panneau lui-meme (`9001`) |
 
 ## Volumes attendus
