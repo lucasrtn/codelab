@@ -43,12 +43,14 @@ services:
         fi
         chmod 600 /var/lib/codelab/config/postgres_password
 
-        # Recopie les identifiants dans un .env consolide, lisible directement
-        # depuis /DATA/AppData/codelab/config/.env sur le disque du ZimaOS --
-        # aucun "docker exec" necessaire pour les consulter. Ne touche qu'a
-        # ses propres lignes (prefixe POSTGRES_), laisse celles d'un autre
-        # service intactes si le fichier existe deja.
-        ENV_FILE=/var/lib/codelab/config/.env
+        # Recopie les identifiants dans un fichier consolide, lisible
+        # directement depuis /DATA/AppData/codelab/config/credentials.env sur
+        # le disque du ZimaOS, aucun "docker exec" necessaire. Pas de nom en
+        # "." (fichier cache sous Unix) : le navigateur de fichiers ZimaOS
+        # n'offre pas d'option pour afficher les fichiers caches. Ne touche
+        # qu'a ses propres lignes (prefixe POSTGRES_), laisse celles d'un
+        # autre service intactes si le fichier existe deja.
+        ENV_FILE=/var/lib/codelab/config/credentials.env
         touch "$ENV_FILE"
         grep -v '^POSTGRES_' "$ENV_FILE" > "$ENV_FILE.tmp" 2>/dev/null || true
         {
@@ -219,7 +221,7 @@ services:
       - /DATA/AppData/codelab/app-manager:/var/lib/codelab/app-manager
       - /DATA/AppData/codelab/workspace:/workspace
       # Lecture-ecriture (pas ":ro") : ce service ajoute sa propre ligne
-      # dans le .env consolide partage avec codelab-postgres.
+      # dans le credentials.env consolide partage avec codelab-postgres.
       - /DATA/AppData/codelab/config:/var/lib/codelab/config
 
     environment:
