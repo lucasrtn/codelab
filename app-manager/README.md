@@ -7,20 +7,23 @@ applications est gere directement par ce service.
 ## Ce que fait le service
 
 - Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise en 3 onglets :
-  - **Apps** — cartes des applications enregistrees (icone, statut, metriques CPU/memoire en direct, recherche
-    et tri), bouton d'ajout (dossier existant ou modele de demarrage rapide).
+  - **Vue d'ensemble** — page d'accueil par defaut : compteurs (total / en ligne / arretees), barre de sante
+    (repartition en ligne / arretee / erreur), actions rapides (ajouter, aller aux projets, aller aux logs).
+  - **Projets** — cartes de toutes les applications enregistrees (icone, statut, metriques CPU/memoire en
+    direct, recherche et tri), bouton d'ajout (dossier existant ou modele de demarrage rapide).
   - **Logs** — selecteur d'application + flux de journal en direct (memes SSE que le volet rapide ouvrable
     depuis une carte, juste en plein format).
-  - **Parametres** — commande prete a copier pour recuperer le mot de passe admin, et rappel du workspace
-    configure.
+- **Menu compte** (avatar en haut a droite) plutot qu'un onglet a part : preference d'apparence (Auto / Clair /
+  Sombre, boutons segmentes plutot qu'un cycle a l'aveugle), commande de lecture des identifiants prete a
+  copier, deconnexion.
 - Pour chaque application activee, lance sa commande de demarrage comme sous-processus, sur un port interne
   attribue automatiquement (plage `9101`–`9140`).
 - Fait office de **reverse-proxy interne** : `http://<IP-ZimaOS>:9001/<nom-app>/` route vers le port interne de
   l'application correspondante — un seul port a exposer sur ZimaOS, quel que soit le nombre d'applications
   gerees.
 - Protege l'ensemble du panneau et de son API par une **authentification par mot de passe**, generee
-  automatiquement au premier demarrage (meme principe que le mot de passe Postgres de `codelab-postgres`).
-  L'onglet Parametres affiche la commande de recuperation directement, avec un bouton copier.
+  automatiquement au premier demarrage (meme principe que le mot de passe Postgres de `codelab-postgres`). La
+  commande de recuperation est accessible directement depuis le menu compte, avec un bouton copier.
 
 ## Fichiers
 
