@@ -1,4 +1,4 @@
-name: Build & push CodeLab images
+name: Build & Push CodeLab images
 
 # Reconstruit les 3 images des lors qu'un de leurs dossiers, ou le compose,
 # change sur main. "workflow_dispatch" permet aussi un rebuild manuel
