@@ -47,22 +47,51 @@ services:
         # directement depuis /DATA/AppData/codelab/config/credentials.env sur
         # le disque du ZimaOS, aucun "docker exec" necessaire. Pas de nom en
         # "." (fichier cache sous Unix) : le navigateur de fichiers ZimaOS
-        # n'offre pas d'option pour afficher les fichiers caches. Ne touche
-        # qu'a ses propres lignes (prefixe POSTGRES_), laisse celles d'un
-        # autre service intactes si le fichier existe deja.
+        # n'offre pas d'option pour afficher les fichiers caches.
+        #
+        # Remplacement par BLOC entier (commentaires inclus), delimite par
+        # des marqueurs "# ===== <nom> =====" / "# ===== /<nom> =====" --
+        # pas juste par prefixe de cle, sinon les commentaires documentant
+        # chaque service s'accumuleraient en double a chaque redemarrage.
+        # Chaque service ne touche qu'a son propre bloc, les autres restent
+        # intacts quel que soit l'ordre de demarrage.
         ENV_FILE=/var/lib/codelab/config/credentials.env
         touch "$ENV_FILE"
-        grep -v '^POSTGRES_' "$ENV_FILE" > "$ENV_FILE.tmp" 2>/dev/null || true
-        {
-          cat "$ENV_FILE.tmp"
-          echo "POSTGRES_HOST=codelab-postgres"
-          echo "POSTGRES_PORT=5432"
-          echo "POSTGRES_DB=codelab"
-          echo "POSTGRES_USER=codelab"
-          echo "POSTGRES_PASSWORD=$(cat /var/lib/codelab/config/postgres_password)"
-        } > "$ENV_FILE.new"
-        mv "$ENV_FILE.new" "$ENV_FILE"
-        rm -f "$ENV_FILE.tmp"
+
+        upsert_block() {
+          name="$1"; content="$2"
+          awk -v s="# ===== $name =====" -v e="# ===== /$name =====" \
+            '$0==s{skip=1} !skip{print} $0==e{skip=0}' "$ENV_FILE" > "$ENV_FILE.tmp"
+          {
+            cat "$ENV_FILE.tmp"
+            echo "# ===== $name ====="
+            printf '%s\n' "$content" | sed 's/^[[:space:]]*//'
+            echo "# ===== /$name ====="
+          } > "$ENV_FILE.new"
+          mv "$ENV_FILE.new" "$ENV_FILE"
+          rm -f "$ENV_FILE.tmp"
+        }
+
+        upsert_block "codelab-header" "# credentials.env -- identifiants CodeLab, generes et geres
+        # automatiquement par chaque service au demarrage. Ne pas editer a la
+        # main : chaque bloc ci-dessous est entierement reecrit a chaque
+        # redemarrage du conteneur concerne. Permissions 600 -- lisible
+        # uniquement par root sur le disque du ZimaOS."
+
+        upsert_block "codelab-postgres" "# Base de donnees partagee par tous les services CodeLab.
+        # Utilise par : codelab-dev, codelab-dagster, codelab-dagster-daemon.
+        POSTGRES_HOST=codelab-postgres
+        POSTGRES_PORT=5432
+        POSTGRES_DB=codelab
+        POSTGRES_USER=codelab
+        POSTGRES_PASSWORD=$(cat /var/lib/codelab/config/postgres_password)"
+
+        upsert_block "codelab-dev" "# Pas de mot de passe : l'acces SSH (port 2222) se fait uniquement par
+        # cle publique (variable SSH_PUBLIC_KEY, saisie a l'installation).
+        # Les cles hote SSH (identite du serveur, pas un mot de passe) sont
+        # persistees dans /DATA/AppData/codelab/dev-host-keys -- sensibles,
+        # ne jamais les partager, mais rien a documenter ici."
+
         chmod 600 "$ENV_FILE"
 
         exec docker-entrypoint.sh postgres
