@@ -45,14 +45,14 @@ recuperer).
 
 **Dagster** : `http://<IP-ZimaOS>:3000/` — charge `/workspace/definitions.py` comme code Dagster.
 
-**Tous les identifiants au meme endroit** — mot de passe Postgres, mot de passe admin app-manager — sont
-regroupes dans un fichier lisible directement depuis le disque du ZimaOS, sans `docker exec` :
+**Tous les identifiants au meme endroit** — mot de passe Postgres, mot de passe admin app-manager, cle de
+session — sont regroupes dans un fichier lisible directement depuis le disque du ZimaOS, sans `docker exec` :
 ```bash
 cat /DATA/AppData/codelab/config/credentials.env
 ```
-Chaque service y ecrit ses propres lignes au demarrage (prefixees `POSTGRES_` / `APP_MANAGER_`) ; rien a taper
-a la main, rien a chercher dans quel conteneur exec. L'onglet **Parametres** du panneau app-manager affiche
-aussi la commande ci-dessus, prete a copier.
+Chaque service y ecrit son propre bloc au demarrage (delimite par des commentaires `# ===== <service> =====`,
+documentant a quoi sert chaque valeur) ; rien a taper a la main, rien a chercher dans quel conteneur exec. Le
+bloc `codelab-dev` explique pourquoi ce service n'a pas de mot de passe (SSH par cle publique uniquement).
 
 ## Persistance des donnees
 
