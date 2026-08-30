@@ -7,7 +7,7 @@ x-casaos:
   description:
     en_US: All-in-one dev environment — Postgres, SSH + VS Code, Dagster orchestration and a custom app deployer.
     fr_FR: Environnement de developpement tout-en-un — Postgres, SSH + VS Code, orchestration Dagster et un gestionnaire d'applications.
-  icon: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPgoJPHBhdGggZD0iTTAgMGgyNHYyNEgweiIgZmlsbD0ibm9uZSIgLz4KCTxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM4NjVhMSIgZD0iTTYuNSAxMi41aC4xNDZjMi4yMDYgMCA0LjM4MS41MTQgNi4zNTQgMS41czQuMTQ4IDEuNSA2LjM1NCAxLjVIMjAuNW0tMTMtMTRoOXYuMjVsLS43MDcuOTcyYTYuNzYgNi43NiAwIDAgMCAuNjg4IDguNzU5TDIyLjUgMTcuNWMwIDItMSAzLjUtMyA1aC0xNWMtMi0xLjUtMy0zLTMtNWw2LjAyLTYuMDJhNi43NiA2Ljc2IDAgMCAwIC42ODctOC43NThMNy41IDEuNzV6IiBzdHJva2Utd2lkdGg9IjIiIC8+Cjwvc3ZnPgo=
+  icon: https://raw.githubusercontent.com/lucasrtn/codelab/main/icon.png
   index: /
   main: codelab-app-manager
   port_map: "9001"
@@ -94,6 +94,7 @@ services:
       # services qui le montent (dev, dagster, dagster-daemon, app-manager).
       - /DATA/AppData/codelab/workspace:/workspace
       - /DATA/AppData/codelab/dev-ssh:/home/vscode/.ssh
+      - /DATA/AppData/codelab/dev-host-keys:/etc/ssh/host_keys
       - /DATA/AppData/codelab/config:/var/lib/codelab/config:ro
 
     depends_on:
