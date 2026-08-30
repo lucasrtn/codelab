@@ -6,18 +6,19 @@ applications est gere directement par ce service.
 
 ## Ce que fait le service
 
-- Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise autour d'une **barre laterale a gauche** (pas un menu
-  du haut), avec 4 sections :
+- Sert un dashboard (`http://<IP-ZimaOS>:9001/`) organise autour d'une **barre laterale a gauche** avec 3
+  sections, et un **bouton compte** en haut a droite de chaque page pour les parametres :
   - **Vue d'ensemble** — page d'accueil par defaut : compteurs (total / en ligne / arretees), barre de sante
-    (repartition en ligne / arretee / erreur), actions rapides (ajouter, aller aux projets, aller aux logs).
-  - **Projets** — cartes de toutes les applications enregistrees (icone, statut, metriques CPU/memoire en
-    direct, recherche et tri), bouton d'ajout (dossier existant ou modele de demarrage rapide).
+    (repartition en ligne / arretee / erreur), ressources cumulees (CPU/memoire), et deux graphiques en barres
+    (CPU et memoire par application en ligne). Pas d'actions rapides — uniquement des statistiques.
+  - **Projets** — uniquement la grille des cartes (icone, statut, metriques CPU/memoire en direct, recherche et
+    tri) et une tuile "Nouveau projet" en derniere position pour la creation. Pas de bandeau de stats ici (deja
+    dans Vue d'ensemble), pas de bouton "Ajouter" separe (la tuile en tient lieu).
   - **Logs** — selecteur d'application + flux de journal en direct (memes SSE que le volet rapide ouvrable
     depuis une carte, juste en plein format).
-  - **Parametres** — page dediee (pas un menu deroulant) : preference d'apparence (Auto / Clair / Sombre,
-    boutons segmentes) et deconnexion. Pas de commande de copie des identifiants dans l'interface —
-    `credentials.env` est deja directement lisible depuis le disque du ZimaOS (voir plus bas), inutile de la
-    dupliquer ici.
+  - **Parametres du compte** — page dediee, ouverte via le bouton rond en haut a droite (pas dans la barre
+    laterale) : preference d'apparence (Auto / Clair / Sombre) et deconnexion. Pas de commande de copie des
+    identifiants dans l'interface — `credentials.env` est deja directement lisible depuis le disque du ZimaOS.
 - Pour chaque application activee, lance sa commande de demarrage comme sous-processus, sur un port interne
   attribue automatiquement (plage `9101`–`9140`).
 - Fait office de **reverse-proxy interne** : `http://<IP-ZimaOS>:9001/<nom-app>/` route vers le port interne de
