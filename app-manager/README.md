@@ -96,8 +96,8 @@ applications est gere directement par ce service.
 ## Authentification
 
 Au tout premier demarrage, un mot de passe admin est genere aleatoirement et ecrit dans
-`STATE_DIR/admin_password` (permissions `600`) — jamais defini par toi, jamais dans le compose. Il est aussi
-recopie, avec la cle de session, dans un `credentials.env` partage avec `codelab-postgres`, lisible directement
+`credentials.env` (permissions `600`), sous `APP_MANAGER_ADMIN_PASSWORD` — jamais defini par toi, jamais dans le
+compose. C'est le seul endroit ou il est stocke, lisible directement
 depuis le disque du ZimaOS sans `docker exec` :
 
 ```bash
@@ -107,11 +107,11 @@ cat /DATA/AppData/codelab/config/credentials.env
 `upsert_shared_block()` n'ecrit que son propre bloc, commentaires inclus (delimite par
 `# ===== codelab-app-manager =====` / `# ===== /codelab-app-manager =====`) — les blocs deposes par
 `codelab-postgres` (et l'en-tete general du fichier) restent intacts, peu importe l'ordre de demarrage des deux
-services. Voir [Fichier `credentials.env` partage](#fichier-credentialsenv-partage) plus bas pour le detail du
+services. Voir [Fichier `credentials.env`](#fichier-credentialsenv) plus bas pour le detail du
 mecanisme.
 
-Les sessions sont signees avec une cle secrete elle aussi generee et persistee (`STATE_DIR/flask_secret_key`,
-et recopiee dans `credentials.env` sous `APP_MANAGER_SESSION_SECRET`), donc la connexion survit a un redemarrage
+Les sessions sont signees avec une cle secrete elle aussi generee et persistee dans le meme fichier
+(`APP_MANAGER_SESSION_SECRET`), donc la connexion survit a un redemarrage
 du conteneur. Une bascule anti-bruteforce limite les tentatives de connexion echouees a 5 par tranche de 5
 minutes, par adresse IP.
 
@@ -119,7 +119,7 @@ minutes, par adresse IP.
 > et son API le sont. Une application que tu deploies reste directement joignable (utile pour tester un
 > webhook, par exemple), independamment du mot de passe du panneau.
 
-## Fichier `credentials.env` partage
+## Fichier `credentials.env`
 
 `upsert_shared_block()` (appelee depuis `bootstrap_secrets()`) ecrit un **bloc entier** — commentaires de
 documentation inclus — dans `/var/lib/codelab/config/credentials.env`
@@ -140,14 +140,14 @@ silencieusement sans bloquer le demarrage du service — c'est une commodite, pa
 | `APP_MANAGER_DIR` | Ou vit `app.py` dans l'image (`/opt/codelab/app-manager`) — lecture seule |
 | `APP_MANAGER_STATE` | Ou vivent `apps.json`, les logs, le mot de passe admin et la cle de session — le seul dossier que le service ecrit |
 | `APP_MANAGER_ROOT` | Racine du navigateur de dossiers et des chemins d'applications (`/workspace`) |
-| `APP_MANAGER_SHARED_CONFIG` | Dossier du `credentials.env` partage avec `codelab-postgres` (`/var/lib/codelab/config`) |
+| `APP_MANAGER_SHARED_CONFIG` | Dossier de `credentials.env`, le fichier unique de secrets (`/var/lib/codelab/config`) |
 | `MANAGER_PORT` | Port d'ecoute du panneau lui-meme (`9001`) |
 
 ## Volumes attendus
 
 | Point de montage | Contenu |
 |---|---|
-| `/var/lib/codelab/app-manager` | `apps.json`, `admin_password`, `flask_secret_key`, `logs/` — tout l'etat persistant du service |
+| `/var/lib/codelab/app-manager` | `apps.json` et `logs/` — l'etat des applications. Aucun secret : ils sont tous dans `credentials.env` |
 | `/workspace` | Racine dans laquelle chercher/lancer les applications |
 
 ## API
