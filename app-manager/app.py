@@ -248,6 +248,29 @@ def start(name):
     a = apps.get(name)
     if not a or is_running(name):
         return
+    
+    # 1. S'assurer que le dossier workspace/app existe sur l'hôte/conteneur
+    app_path = a["path"]
+    os.makedirs(app_path, exist_ok=True)
+
+    # 2. Si le dossier est complètement vide, créer un script minimal de secours pour éviter le crash
+    if not os.listdir(app_path):
+        fallback_file = os.path.join(app_path, "app.py")
+        with open(fallback_file, "w") as f:
+            f.write(
+                'import os\n'
+                'from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\n\n'
+                'class Handler(BaseHTTPRequestHandler):\n'
+                '    def do_GET(self):\n'
+                '        self.send_response(200)\n'
+                '        self.send_header("Content-Type", "text/html; charset=utf-8")\n'
+                '        self.end_headers()\n'
+                '        self.wfile.write(f"<h1>CodeLab App : {os.path.basename(os.getcwd())}</h1><p>En attente du code de votre application...</p>".encode())\n\n'
+                'if __name__ == "__main__":\n'
+                '    port = int(os.environ.get("PORT", 8000))\n'
+                '    ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()\n'
+            )
+
     os.makedirs(LOG_DIR, exist_ok=True)
     rotate_log_if_needed(name)
     out = open(os.path.join(LOG_DIR, name + ".log"), "ab", buffering=0)
@@ -259,20 +282,14 @@ def start(name):
         mem_bytes = int(max_mem) * 1024 * 1024
 
         def _limit_resources():
-            # Limite "douce" de memoire virtuelle pour ce process et ses
-            # enfants (herite a travers fork/exec). Ne limite pas le CPU :
-            # RLIMIT_CPU tue le process une fois un total de secondes CPU
-            # cumule atteint, ce qui n'a pas de sens pour un serveur cense
-            # tourner indefiniment -- seulement pour un script qui boucle.
             resource.setrlimit(resource.RLIMIT_AS, (mem_bytes, mem_bytes))
 
         preexec = _limit_resources
 
     with lock:
-        os.makedirs(a["path"], exist_ok=True)
         procs[name] = subprocess.Popen(
             ["bash", "-lc", a["command"]],
-            cwd=a["path"], env=env, stdout=out, stderr=out,
+            cwd=app_path, env=env, stdout=out, stderr=out,
             start_new_session=True, preexec_fn=preexec)
     apps[name]["enabled"] = True
     save(apps)
