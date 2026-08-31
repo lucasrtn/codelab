@@ -22,8 +22,7 @@ applications est gere directement par ce service.
     Activer/Desactiver, Lancer le build (si une commande de build est definie), Git pull (si le dossier est un
     depot Git), Metriques, Voir les logs et Supprimer. Une pastille sur l'icone indique le statut : verte (en
     ligne), grise (arretee), rouge (erreur), rouge clignotante (boucle de crash — redemarrage automatique
-    interrompu apres 5 echecs). Une tuile "Nouveau projet" en derniere position remplace le bouton "Ajouter"
-    separe. **Bascule grille/liste** dans la barre d'outils (preference retenue) : la vue liste garde le meme
+    interrompu apres 5 echecs). Le bouton "Ajouter un projet" vit dans la barre d'outils. **Bascule grille/liste** dans la barre d'outils (preference retenue) : la vue liste garde le meme
     menu "..." mais affiche icone + nom sur une ligne, plus dense. Pas de bandeau de stats ici (deja dans Vue
     d'ensemble), pas de message "aucun projet" quand c'est vide — juste la tuile, pas de tri (toujours par
     ordre alphabetique, recherche disponible en haut).
@@ -70,8 +69,6 @@ applications est gere directement par ce service.
   par le noyau s'il tente de la depasser — protege contre une fuite memoire qui saturerait le ZimaOS entier.
   Pas de limite CPU equivalente : `RLIMIT_CPU` tue un process une fois un total de secondes CPU cumule atteint,
   ce qui n'a pas de sens pour un serveur cense tourner indefiniment.
-- **4e modele de demarrage rapide : "API"** — squelette Python base sur `http.server` (bibliotheque standard,
-  zero dependance), renvoie une reponse JSON minimale. S'ajoute aux modeles existants (Statique, Flask, Node).
 
 > **Ce qui n'a volontairement pas ete ajoute** : un terminal web par application (redondant avec l'acces SSH
 > deja fourni par `codelab-dev` ; un vrai terminal interactif necessiterait un PTY + des websockets, une
@@ -161,7 +158,6 @@ silencieusement sans bloquer le demarrage du service — c'est une commodite, pa
 | `/api/browse?path=...` | GET | oui | Navigateur de dossiers, borne a `APP_MANAGER_ROOT` |
 | `/api/detect?path=...` | GET | oui | Suggere une commande de lancement a partir du contenu du dossier |
 | `/api/add` | POST | oui | Enregistre une application existante (nom, chemin, commande, build, limite memoire) |
-| `/api/create` | POST | oui | Cree un nouveau projet a partir d'un modele (`static`/`flask`/`node`/`api`) et le demarre |
 | `/api/app/<nom>` | PUT | oui | Modifie le chemin/la commande/le build/la limite memoire d'une application **arretee** |
 | `/api/toggle/<nom>` | POST | oui | Demarre ou arrete une application |
 | `/api/restart/<nom>` | POST | oui | Arrete puis relance immediatement une application |
@@ -187,20 +183,6 @@ editable dans le formulaire) :
 | `app.py` / `main.py` | `python3 app.py` / `python3 main.py` |
 | `Procfile` avec une ligne `web:` | le contenu de cette ligne |
 | `index.html` seul | `python3 -m http.server $PORT` |
-
-## Modeles de demarrage rapide
-
-`/api/create` scaffolde un projet minimal fonctionnel, sans etape d'installation supplementaire (pas de
-`pip install` ni `npm install` a l'ajout — tout tourne des la creation) :
-
-| Modele | Fichier genere | Commande | Dependance image |
-|---|---|---|---|
-| `static` | `index.html` | `python3 -m http.server $PORT` | aucune |
-| `flask` | `app.py` (Flask minimal) | `python3 app.py` | `flask` (deja installe pour le service lui-meme) |
-| `node` | `index.js` (module `http` natif) | `node index.js` | `nodejs` (installe via le `Dockerfile`) |
-
-Le modele `node` n'utilise que le module `http` natif de Node, volontairement, pour eviter toute resolution de
-dependances `npm` a la creation.
 
 ## Metriques CPU / memoire
 
@@ -230,6 +212,10 @@ caractere non-ASCII tel quel.
 
 ## Cycle de vie d'une application
 
+Le panneau ne cree jamais de projet : il n'ecrit rien dans `/workspace`. Un projet nait d'un `mkdir`, d'un
+`git clone` ou d'un `code .` depuis une session SSH sur `codelab-dev` ; le panneau se contente de le declarer,
+de le lancer et de le superviser. `POST /api/add` refuse d'ailleurs un chemin qui n'existe pas deja.
+
 1. **Attribution du port** : `next_port()` prend le premier port libre dans `9101`–`9140`.
 2. **Demarrage** (`start()`) : `subprocess.Popen(["bash", "-lc", <commande>], cwd=<chemin>, env={PORT: ..., ...})`,
    sortie standard et erreur redirigees vers `logs/<nom>.log`. Le process tourne dans son propre groupe
@@ -254,4 +240,4 @@ docker run --rm -p 9001:9001 \
 
 Au premier lancement, le mot de passe admin genere apparait dans les logs du conteneur
 (`docker logs codelab-app-manager-test`). Se connecter sur `http://localhost:9001/`, puis tester le cycle
-complet (creation depuis un modele, demarrage, proxy, metriques, logs en direct, edition, arret).
+complet (ajout d'un dossier existant, demarrage, proxy, metriques, logs en direct, edition, arret).
