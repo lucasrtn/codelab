@@ -35,18 +35,18 @@ avec un acces Postgres deja configure dans l'environnement de session.
 
 | Variable | Origine | Usage |
 |---|---|---|
-| `SSH_PUBLIC_KEY` | Saisie a l'installation ZimaOS | Ecrite dans `authorized_keys` a chaque demarrage |
+| `SSH_PUBLIC_KEY` | Saisie a l'installation ZimaOS | **Ajoutee** a `authorized_keys` si absente — les cles deja presentes sont conservees |
 | `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` | Fixees dans `docker-compose.yml` | Connexion a `codelab-postgres` |
-| `PGPASSWORD_FILE` | Fixee dans `docker-compose.yml`, pointe vers le fichier genere par `codelab-postgres` | Lu au demarrage pour construire `PGPASSWORD` |
+| `CODELAB_ENV_FILE` | Fixee dans `docker-compose.yml` | `credentials.env` : `POSTGRES_PASSWORD` y est lu pour construire `PGPASSWORD` |
+| `CODELAB_SSH_DIR` | Fixee dans `docker-compose.yml` | Dossier unique des cles : `authorized_keys` + `host_keys/` |
 
 ## Volumes attendus
 
 | Point de montage | Contenu |
 |---|---|
 | `/workspace` | Ton code — partage avec `codelab-dagster`, `codelab-dagster-daemon` et `codelab-app-manager` |
-| `/home/vscode/.ssh` | `authorized_keys` (regenere a chaque demarrage, pas une source de verite a modifier a la main) |
-| `/etc/ssh/host_keys` | Cles hote SSH persistantes (voir ci-dessous) |
-| `/var/lib/codelab/config` | Lecture seule — fichier contenant le mot de passe Postgres genere par `codelab-postgres` |
+| `/var/lib/codelab/ssh` | Tout le SSH au meme endroit : `authorized_keys` et `host_keys/` (cote hote : `config/ssh/`) |
+| `/var/lib/codelab/config` | Lecture seule — `credentials.env`, d'ou est lu le mot de passe Postgres |
 
 ## Cles hote SSH et empreinte stable
 
@@ -56,7 +56,7 @@ l'avertissement `REMOTE HOST IDENTIFICATION HAS CHANGED` cote client — et, pir
 carrement la connexion (`MitmPortForwardingDisabled`) au lieu de simplement avertir.
 
 Pour eviter ca : au premier demarrage, le script genere les cles hote (`rsa`, `ecdsa`, `ed25519`) dans
-`/etc/ssh/host_keys` (mappe sur `/DATA/AppData/codelab/dev-host-keys` cote hote) si elles n'y sont pas deja, puis
+`/var/lib/codelab/ssh/host_keys` (mappe sur `/DATA/AppData/codelab/config/ssh/host_keys` cote hote) si elles n'y sont pas deja, puis
 les copie vers `/etc/ssh/` avant de lancer `sshd`. Tant que ce dossier n'est pas efface, l'empreinte reste
 identique a travers tous les redemarrages et reinstallations.
 
@@ -98,5 +98,6 @@ docker run --rm -it \
   codelab-dev-test
 ```
 
-Sans variables `PG*` ni volume `codelab-config`, la partie Postgres du script est simplement ignoree
-(`[ -n "${PGPASSWORD_FILE}" ]` echoue silencieusement) — utile pour tester uniquement la partie SSH en isolation.
+Sans variables `PG*` ni `credentials.env` accessible, la partie Postgres du script est ignoree : le script
+attend le fichier 30 s, log un avertissement, puis demarre `sshd` quand meme. C'est deliberé — une base
+indisponible ne doit jamais couper l'acces SSH, qui est justement le moyen d'aller la reparer.
