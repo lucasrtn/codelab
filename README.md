@@ -73,7 +73,7 @@ redemarrage, une recreation de conteneur et une reinstallation.
 │       └── host_keys/         identite du serveur (empreinte stable)
 ├── workspace/                 ton code, partage par les 4 services
 ├── postgres/                  donnees de la base
-├── dagster-home/              etat Dagster
+├── dagster/                   etat Dagster
 └── app-manager/               apps.json + logs des applications
 ```
 
@@ -91,10 +91,19 @@ qu'un conteneur ne peut donc plus les lire. A executer sur le ZimaOS avant de re
 conserver l'empreinte du serveur et les cles deja autorisees :
 
 ```bash
-sudo mkdir -p /DATA/AppData/codelab/config/ssh
-sudo mv /DATA/AppData/codelab/dev-host-keys /DATA/AppData/codelab/config/ssh/host_keys
-sudo mv /DATA/AppData/codelab/dev-ssh/authorized_keys /DATA/AppData/codelab/config/ssh/
-sudo rmdir /DATA/AppData/codelab/dev-ssh
+cd /DATA/AppData/codelab
+sudo mkdir -p config/ssh
+sudo mv dev-host-keys config/ssh/host_keys
+sudo mv dev-ssh/authorized_keys config/ssh/
+sudo rmdir dev-ssh
+```
+
+Le dossier `dagster-home` a par ailleurs ete renomme en `dagster`, pour s'aligner sur les autres (`postgres`,
+`app-manager`, `workspace`) qui portent tous le nom de leur service. A renommer avant de relancer la stack,
+sinon Dagster repart d'un `DAGSTER_HOME` vide et reinitialise sa configuration :
+
+```bash
+sudo mv /DATA/AppData/codelab/dagster-home /DATA/AppData/codelab/dagster
 ```
 
 Sans cette etape, tout fonctionne quand meme : de nouvelles cles hote sont generees et `SSH_PUBLIC_KEY` est
