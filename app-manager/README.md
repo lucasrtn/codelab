@@ -18,15 +18,15 @@ applications est gere directement par ce service.
   - **Projets** — grille de tuiles compactes façon icônes iOS : l'icône occupe presque toute la tuile, le nom
     en dessous en petit texte centré, sans bordure ni fond autour (juste l'icône elle-même, deja arrondie).
     Cliquer sur une tuile ouvre le site dans un nouvel onglet. Un menu **"..."** discret (visible en permanence
-    mais peu contrasté) donne acces a Modifier (masque tant que l'app tourne), Activer/Desactiver, Voir les
-    logs et Supprimer. Une pastille sur l'icone (verte/grise/rouge) indique le statut. Une tuile "Nouveau
-    projet" en derniere position remplace le bouton "Ajouter" separe. **Bascule grille/liste** dans la barre
-    d'outils (preference retenue) : la vue liste garde le meme menu "..." mais affiche icone + nom sur une
-    ligne, plus dense. Pas de bandeau de stats ici (deja dans Vue d'ensemble), pas de message "aucun projet"
-    quand c'est vide — juste la tuile, pas de tri (toujours par ordre alphabetique, recherche disponible en
-    haut).
-  - **Logs** — plus d'onglet dedie : accessibles uniquement via "Voir les logs" dans le menu "..." d'une
-    carte, dans une **pop-up centree** (comme Modifier), pas un panneau lateral.
+    mais peu contrasté) donne acces a Modifier (masque tant que l'app tourne), Redemarrer (si en ligne),
+    Activer/Desactiver, Lancer le build (si une commande de build est definie), Git pull (si le dossier est un
+    depot Git), Metriques, Voir les logs et Supprimer. Une pastille sur l'icone indique le statut : verte (en
+    ligne), grise (arretee), rouge (erreur), rouge clignotante (boucle de crash — redemarrage automatique
+    interrompu apres 5 echecs). Une tuile "Nouveau projet" en derniere position remplace le bouton "Ajouter"
+    separe. **Bascule grille/liste** dans la barre d'outils (preference retenue) : la vue liste garde le meme
+    menu "..." mais affiche icone + nom sur une ligne, plus dense. Pas de bandeau de stats ici (deja dans Vue
+    d'ensemble), pas de message "aucun projet" quand c'est vide — juste la tuile, pas de tri (toujours par
+    ordre alphabetique, recherche disponible en haut).
   - **Compte, 1er niveau** — clic sur l'icone de profil (generique, pas le logo CodeLab) en haut a droite :
     mini-menu deroulant avec seulement **Parametres** et **Deconnexion**, pour un acces rapide sans changer de
     page.
@@ -40,6 +40,46 @@ applications est gere directement par ce service.
   gerees.
 - Protege l'ensemble du panneau et de son API par une **authentification par mot de passe**, generee
   automatiquement au premier demarrage (meme principe que le mot de passe Postgres de `codelab-postgres`).
+
+## Fiabilite, observabilite, deploiement
+
+- **Redemarrage automatique en cas de crash** — un thread de fond (`monitor_tick`, toutes les 10s) redemarre
+  automatiquement toute application marquee active dont le process est mort de maniere inattendue (crash, pas
+  un arret volontaire via le menu). Plafonne a 5 tentatives par tranche de 10 minutes : au-dela, l'application
+  est laissee arretee et la pastille de statut clignote en rouge ("boucle de crash") jusqu'a intervention
+  manuelle. Un arret volontaire (Desactiver) efface cet historique.
+- **Rotation des journaux** — un fichier de log qui depasse 2 Mo est renomme en `.log.1` (ecrasant l'ancien
+  s'il existe) au demarrage suivant de l'application concernee. Evite une croissance illimitee sur le disque.
+- **Redemarrer** — action distincte d'Activer/Desactiver dans le menu "...", visible seulement si l'application
+  tourne : l'arrete puis la relance immediatement (utile apres avoir modifie du code sans que l'app le recharge
+  seule).
+- **Historique de metriques** — CPU et memoire de chaque application en ligne sont enregistres a chaque
+  actualisation du dashboard (~5s), conserves en memoire sur les ~30 derniers points (~2,5 min). Consultable via
+  "Metriques" dans le menu "..." : deux mini-graphiques SVG (CPU, memoire), generes cote client sans
+  dependance supplementaire.
+- **Recherche dans les logs** — un champ de filtre au-dessus du journal en direct ; ne montre que les lignes
+  correspondantes, cote client, sans requete supplementaire au serveur.
+- **Build a la demande** — commande optionnelle (ex. `npm install`, `pip install -r requirements.txt`),
+  configurable par application dans le formulaire d'ajout/edition, executee separement du lancement via
+  "Lancer le build" dans le menu "..." (delai max 10 min). La sortie est ecrite dans le meme journal que
+  l'application, consultable normalement.
+- **Git pull** — visible dans le menu "..." uniquement si le dossier du projet contient un `.git`. Execute
+  `git pull --ff-only` (delai max 2 min), le resultat est affiche directement.
+- **Limite memoire optionnelle** — champ "Limite memoire en Mo" dans le formulaire d'ajout/edition ; applique
+  une limite dure via `RLIMIT_AS` (herite par le process et ses enfants) au demarrage. Le process est arrete
+  par le noyau s'il tente de la depasser — protege contre une fuite memoire qui saturerait le ZimaOS entier.
+  Pas de limite CPU equivalente : `RLIMIT_CPU` tue un process une fois un total de secondes CPU cumule atteint,
+  ce qui n'a pas de sens pour un serveur cense tourner indefiniment.
+- **4e modele de demarrage rapide : "API"** — squelette Python base sur `http.server` (bibliotheque standard,
+  zero dependance), renvoie une reponse JSON minimale. S'ajoute aux modeles existants (Statique, Flask, Node).
+
+> **Ce qui n'a volontairement pas ete ajoute** : un terminal web par application (redondant avec l'acces SSH
+> deja fourni par `codelab-dev` ; un vrai terminal interactif necessiterait un PTY + des websockets, une
+> surface de securite supplementaire pour un gain marginal) ; des domaines personnalises (necessiterait de
+> controler du DNS externe, impossible a automatiser depuis l'interieur d'un conteneur — le routage `/nom/`
+> actuel fonctionne sans dependance externe) ; un auto-deploiement par webhook GitHub (necessiterait un
+> endpoint public joignable + verification de signature — le bouton "Git pull" manuel couvre le besoin reel
+> pour un usage personnel sur reseau local).
 
 > **Structuration visuelle** : chaque page regroupe son contenu dans des "zones" (fond legerement different du
 > fond de page, titre de section en majuscules) plutot que de laisser les cartes flotter librement — Vue
@@ -117,13 +157,17 @@ silencieusement sans bloquer le demarrage du service — c'est une commodite, pa
 | `/health` | GET | non | Sonde du `HEALTHCHECK` Docker |
 | `/login` | GET / POST | non | Page de connexion / verification du mot de passe |
 | `/logout` | POST | oui | Termine la session |
-| `/api/apps` | GET | oui | Liste des applications, avec `cpu_percent` et `memory_mb` en direct |
+| `/api/apps` | GET | oui | Liste des applications, avec statut, metriques en direct, `crash_looping`, `is_git`, `has_build` |
 | `/api/browse?path=...` | GET | oui | Navigateur de dossiers, borne a `APP_MANAGER_ROOT` |
 | `/api/detect?path=...` | GET | oui | Suggere une commande de lancement a partir du contenu du dossier |
-| `/api/add` | POST | oui | Enregistre une application existante (nom, chemin, commande) |
-| `/api/create` | POST | oui | Cree un nouveau projet a partir d'un modele (`static`/`flask`/`node`) et le demarre |
-| `/api/app/<nom>` | PUT | oui | Modifie le chemin/la commande d'une application **arretee** |
+| `/api/add` | POST | oui | Enregistre une application existante (nom, chemin, commande, build, limite memoire) |
+| `/api/create` | POST | oui | Cree un nouveau projet a partir d'un modele (`static`/`flask`/`node`/`api`) et le demarre |
+| `/api/app/<nom>` | PUT | oui | Modifie le chemin/la commande/le build/la limite memoire d'une application **arretee** |
 | `/api/toggle/<nom>` | POST | oui | Demarre ou arrete une application |
+| `/api/restart/<nom>` | POST | oui | Arrete puis relance immediatement une application |
+| `/api/build/<nom>` | POST | oui | Execute la commande de build (si definie), sortie dans le journal |
+| `/api/git-pull/<nom>` | POST | oui | `git pull --ff-only` dans le dossier du projet (si c'est un depot Git) |
+| `/api/metrics/<nom>` | GET | oui | Historique CPU/memoire en memoire (~30 derniers points) |
 | `/api/app/<nom>` | DELETE | oui | Retire une application du registre (le dossier n'est jamais touche) |
 | `/api/logs/<nom>` | GET | oui | 120 dernieres lignes du journal |
 | `/api/logs/<nom>/stream` | GET | oui | Flux de logs en direct (Server-Sent Events) |
