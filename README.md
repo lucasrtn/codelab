@@ -45,21 +45,61 @@ recuperer).
 
 **Dagster** : `http://<IP-ZimaOS>:3000/` — charge `/workspace/definitions.py` comme code Dagster.
 
-**Tous les identifiants au meme endroit** — mot de passe Postgres, mot de passe admin app-manager, cle de
-session — sont regroupes dans un fichier lisible directement depuis le disque du ZimaOS, sans `docker exec` :
+## Un seul fichier de secrets
+
+Mot de passe Postgres, mot de passe admin app-manager, cle de session : **tout est dans `credentials.env`, et
+nulle part ailleurs.** Aucun fichier mono-secret a cote, rien a aller chercher dans un conteneur :
 ```bash
 cat /DATA/AppData/codelab/config/credentials.env
 ```
-Chaque service y ecrit son propre bloc au demarrage (delimite par des commentaires `# ===== <service> =====`,
-documentant a quoi sert chaque valeur) ; rien a taper a la main, rien a chercher dans quel conteneur exec. Le
-bloc `codelab-dev` explique pourquoi ce service n'a pas de mot de passe (SSH par cle publique uniquement).
+Chaque service ecrit son propre bloc au demarrage (delimite par `# ===== <service> =====`, avec le commentaire
+qui explique a quoi sert chaque valeur) et lit celui des autres. `codelab-postgres` genere le mot de passe et
+l'ecrit la ; `codelab-dev` et les deux services Dagster le relisent depuis ce fichier ; `app-manager` y depose
+son mot de passe admin et sa cle de session. Une valeur deja presente n'est jamais regeneree par-dessus.
+
+Sauvegarder ce fichier (et `config/ssh/`) suffit a sauvegarder tous les acces.
 
 ## Persistance des donnees
 
 Tout vit sous `/DATA/AppData/codelab/` sur le disque du ZimaOS (aucun volume Docker nomme) : ca survit a un
-redemarrage, une recreation de conteneur et une reinstallation. Seule exception a connaitre : si l'ecran de
-desinstallation ZimaOS propose de supprimer les donnees de l'application, il faut decocher cette case pour les
-conserver.
+redemarrage, une recreation de conteneur et une reinstallation.
+
+```
+/DATA/AppData/codelab/
+├── config/
+│   ├── credentials.env        tous les secrets, et rien d'autre
+│   └── ssh/
+│       ├── authorized_keys    cles autorisees a ouvrir une session
+│       └── host_keys/         identite du serveur (empreinte stable)
+├── workspace/                 ton code, partage par les 4 services
+├── postgres/                  donnees de la base
+├── dagster-home/              etat Dagster
+└── app-manager/               apps.json + logs des applications
+```
+
+Seule exception a connaitre : si l'ecran de desinstallation ZimaOS propose de supprimer les donnees de
+l'application, il faut decocher cette case pour les conserver.
+
+## Migration depuis une version anterieure
+
+Les secrets se migrent **tout seuls** au premier demarrage : `config/postgres_password`,
+`app-manager/admin_password` et `app-manager/flask_secret_key` sont repris dans `credentials.env` puis
+supprimes. La base de donnees et le mot de passe du panneau continuent de fonctionner, rien a faire.
+
+Les cles SSH demandent **une commande**, parce que leurs anciens dossiers ne sont plus montes par le compose et
+qu'un conteneur ne peut donc plus les lire. A executer sur le ZimaOS avant de reimporter le compose, pour
+conserver l'empreinte du serveur et les cles deja autorisees :
+
+```bash
+sudo mkdir -p /DATA/AppData/codelab/config/ssh
+sudo mv /DATA/AppData/codelab/dev-host-keys /DATA/AppData/codelab/config/ssh/host_keys
+sudo mv /DATA/AppData/codelab/dev-ssh/authorized_keys /DATA/AppData/codelab/config/ssh/
+sudo rmdir /DATA/AppData/codelab/dev-ssh
+```
+
+Sans cette etape, tout fonctionne quand meme : de nouvelles cles hote sont generees et `SSH_PUBLIC_KEY` est
+re-autorisee automatiquement — mais l'empreinte du serveur change (`ssh-keygen -R "[<IP-ZimaOS>]:2222"` cote
+client) et les cles ajoutees a la main sont perdues.
 
 ## Publication des images (CI)
 
