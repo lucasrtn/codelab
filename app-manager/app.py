@@ -15,10 +15,12 @@ sur les points de montage declares dans docker-compose.yml :
   data/app-manager   -> /var/lib/codelab/app-manager  (APP_MANAGER_STATE)
   workspace          -> /workspace                    (APP_MANAGER_ROOT)
   config (partage)   -> /var/lib/codelab/config       (APP_MANAGER_SHARED_CONFIG)
-Le code est en lecture seule ; apps.json, les journaux, le mot de passe
-admin genere et la cle de session Flask vivent tous dans STATE_DIR. Les
-identifiants sont aussi recopies dans credentials.env, partage avec
-codelab-postgres, pour consultation directe depuis le disque du ZimaOS.
+Le code est en lecture seule ; apps.json et les journaux vivent dans
+STATE_DIR. Aucun secret n'y est stocke : le mot de passe admin et la cle
+de session sont lus et ecrits dans credentials.env, le fichier unique
+d'identifiants CodeLab, consultable directement depuis le disque du
+ZimaOS. Les anciens fichiers admin_password / flask_secret_key sont
+repris puis supprimes au premier demarrage.
 
 Fonctionnalites de fiabilite/observabilite/deploiement ajoutees :
   - redemarrage automatique en cas de crash (plafonne, voir monitor_tick)
