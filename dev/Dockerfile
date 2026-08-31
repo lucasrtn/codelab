@@ -16,7 +16,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 -s /bin/bash vscode \
-    && mkdir -p /home/vscode/.ssh \
     && chown -R vscode:vscode /home/vscode
 
 COPY dev/requirements.txt /opt/codelab/dev/requirements.txt
@@ -24,6 +23,8 @@ COPY dev/requirements.txt /opt/codelab/dev/requirements.txt
 RUN pip install --no-cache-dir -r /opt/codelab/dev/requirements.txt
 
 COPY dev/runner.py /opt/codelab/dev/runner.py
+COPY dev/entrypoint.sh /opt/codelab/dev/entrypoint.sh
+RUN chmod +x /opt/codelab/dev/entrypoint.sh
 
 RUN mkdir -p /run/sshd \
     && sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config \
@@ -32,58 +33,8 @@ RUN mkdir -p /run/sshd \
 
 EXPOSE 22
 
-# Un sshd ne fait PAS heriter ses sessions de l'environnement du process qui
-# l'a lance (comportement OpenSSH normal, meme dans ce script). Pour que
-# PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD soient disponibles dans un
-# shell ouvert via SSH (dont Remote-SSH de VS Code, qui source ~/.bashrc),
-# on les ecrit explicitement a deux endroits : /etc/profile.d (shells de
-# login) et ~/.bashrc (shells interactifs non-login).
-#
-# Les cles hote SSH (/etc/ssh/ssh_host_*_key) sont regenerees par apt au
-# moment du build : sans les persister, elles changent a chaque
-# recreation du conteneur (reinstall, mise a jour d'image...), ce qui
-# fait echouer VS Code Remote-SSH (MitmPortForwardingDisabled) a chaque
-# fois. On les genere une seule fois dans le volume persistant
-# HOST_KEYS_DIR, puis on les recopie vers /etc/ssh a chaque demarrage :
-# meme empreinte tant que HOST_KEYS_DIR n'est pas efface.
-#
-# authorized_keys : AJOUTE la cle de SSH_PUBLIC_KEY si elle n'y est pas
-# deja, plutot que d'ecraser tout le fichier a chaque demarrage. Deux
-# consequences voulues : une cle ajoutee a la main (docker exec) ou
-# deposee par un demarrage precedent n'est jamais perdue, et plusieurs
-# appareils peuvent cohabiter dans le fichier au lieu de se remplacer
-# l'un l'autre. "grep -qxF" compare la ligne entiere, exactement, pour
-# eviter les doublons a chaque redemarrage.
-CMD ["/bin/bash", "-lc", "\
-    HOST_KEYS_DIR=/etc/ssh/host_keys; \
-    mkdir -p \"$HOST_KEYS_DIR\"; \
-    for t in rsa ecdsa ed25519; do \
-        if [ ! -f \"$HOST_KEYS_DIR/ssh_host_${t}_key\" ]; then \
-            ssh-keygen -q -t \"$t\" -f \"$HOST_KEYS_DIR/ssh_host_${t}_key\" -N ''; \
-        fi; \
-    done && \
-    cp -f \"$HOST_KEYS_DIR\"/ssh_host_*_key \"$HOST_KEYS_DIR\"/ssh_host_*_key.pub /etc/ssh/ && \
-    chmod 600 /etc/ssh/ssh_host_*_key && \
-    mkdir -p /home/vscode/.ssh && \
-    chmod 700 /home/vscode/.ssh && \
-    touch /home/vscode/.ssh/authorized_keys && \
-    if [ -n \"${SSH_PUBLIC_KEY}\" ] && ! grep -qxF \"${SSH_PUBLIC_KEY}\" /home/vscode/.ssh/authorized_keys; then \
-        printf '%s\\n' \"${SSH_PUBLIC_KEY}\" >> /home/vscode/.ssh/authorized_keys; \
-    fi && \
-    chown -R vscode:vscode /home/vscode/.ssh && \
-    chmod 600 /home/vscode/.ssh/authorized_keys && \
-    { \
-        [ -n \"${PGHOST}\" ] && echo \"export PGHOST=$(printf '%q' \"${PGHOST}\")\"; \
-        [ -n \"${PGPORT}\" ] && echo \"export PGPORT=$(printf '%q' \"${PGPORT}\")\"; \
-        [ -n \"${PGDATABASE}\" ] && echo \"export PGDATABASE=$(printf '%q' \"${PGDATABASE}\")\"; \
-        [ -n \"${PGUSER}\" ] && echo \"export PGUSER=$(printf '%q' \"${PGUSER}\")\"; \
-        if [ -n \"${PGPASSWORD_FILE}\" ] && [ -f \"${PGPASSWORD_FILE}\" ]; then \
-            echo \"export PGPASSWORD=$(printf '%q' \"$(cat \"${PGPASSWORD_FILE}\")\")\"; \
-        fi; \
-        true; \
-    } > /etc/profile.d/codelab-pg.sh && \
-    cat /etc/profile.d/codelab-pg.sh >> /home/vscode/.bashrc && \
-    chown vscode:vscode /home/vscode/.bashrc && \
-    /usr/sbin/sshd && \
-    exec python /opt/codelab/dev/runner.py \
-"]
+# Toute la logique de demarrage (cles SSH, identifiants Postgres) vit dans
+# dev/entrypoint.sh : un script versionne et testable, plutot qu'une ligne de
+# shell echappee dans un CMD.
+ENTRYPOINT ["/opt/codelab/dev/entrypoint.sh"]
+CMD ["python", "/opt/codelab/dev/runner.py"]
