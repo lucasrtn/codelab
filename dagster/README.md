@@ -25,9 +25,10 @@ de demarrage differentes — voir `command:` de chaque service dans `docker-comp
 
 Execute avant toute commande (`dagster-webserver` ou `dagster-daemon run`), dans cet ordre :
 
-1. **Resout le mot de passe Postgres.** Lit `DAGSTER_PG_PASSWORD_FILE` (fichier genere par `codelab-postgres`,
-   partage via le volume `codelab-config`) et l'exporte en `DAGSTER_PG_PASSWORD` — `dagster.yaml` ne sait lire un
-   secret que depuis une variable d'environnement, pas un chemin de fichier.
+1. **Resout le mot de passe Postgres.** Lit `POSTGRES_PASSWORD` dans `CODELAB_ENV_FILE`
+   (`credentials.env`, le fichier unique de secrets ecrit par `codelab-postgres`) et l'exporte en
+   `DAGSTER_PG_PASSWORD` — `dagster.yaml` ne sait lire un secret que depuis une variable d'environnement.
+   Attend le fichier jusqu'a 30 s, au cas ou le conteneur soit lance seul, hors de la stack.
 2. **Deploie `dagster.yaml` dans `DAGSTER_HOME`** s'il n'y est pas deja (premier demarrage uniquement — ne
    jamais ecraser une configuration existante).
 3. **Deploie un `definitions.py` d'exemple dans `/workspace`** s'il est absent, pour eviter un crash au boot sur
