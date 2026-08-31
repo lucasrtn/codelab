@@ -269,6 +269,7 @@ def start(name):
         preexec = _limit_resources
 
     with lock:
+        os.makedirs(a["path"], exist_ok=True)
         procs[name] = subprocess.Popen(
             ["bash", "-lc", a["command"]],
             cwd=a["path"], env=env, stdout=out, stderr=out,
