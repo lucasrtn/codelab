@@ -56,20 +56,20 @@ services:
         # Chaque service ne touche qu'a son propre bloc, les autres restent
         # intacts quel que soit l'ordre de demarrage.
         ENV_FILE=/var/lib/codelab/config/credentials.env
-        touch "$ENV_FILE"
+        touch "$$ENV_FILE"
 
         upsert_block() {
-          name="$1"; content="$2"
-          awk -v s="# ===== $name =====" -v e="# ===== /$name =====" \
-            '$0==s{skip=1} !skip{print} $0==e{skip=0}' "$ENV_FILE" > "$ENV_FILE.tmp"
+          name="$$1"; content="$$2"
+          awk -v s="# ===== $$name =====" -v e="# ===== /$$name =====" \
+            '$$0==s{skip=1} !skip{print} $$0==e{skip=0}' "$$ENV_FILE" > "$$ENV_FILE.tmp"
           {
-            cat "$ENV_FILE.tmp"
-            echo "# ===== $name ====="
-            printf '%s\n' "$content" | sed 's/^[[:space:]]*//'
-            echo "# ===== /$name ====="
-          } > "$ENV_FILE.new"
-          mv "$ENV_FILE.new" "$ENV_FILE"
-          rm -f "$ENV_FILE.tmp"
+            cat "$$ENV_FILE.tmp"
+            echo "# ===== $$name ====="
+            printf '%s\n' "$$content" | sed 's/^[[:space:]]*//'
+            echo "# ===== /$$name ====="
+          } > "$$ENV_FILE.new"
+          mv "$$ENV_FILE.new" "$$ENV_FILE"
+          rm -f "$$ENV_FILE.tmp"
         }
 
         upsert_block "codelab-header" "# credentials.env -- identifiants CodeLab, generes et geres
@@ -84,7 +84,7 @@ services:
         POSTGRES_PORT=5432
         POSTGRES_DB=codelab
         POSTGRES_USER=codelab
-        POSTGRES_PASSWORD=$(cat /var/lib/codelab/config/postgres_password)"
+        POSTGRES_PASSWORD=$$(cat /var/lib/codelab/config/postgres_password)"
 
         upsert_block "codelab-dagster" "# codelab-dagster (interface :3000) et codelab-dagster-daemon
         # n'ont pas d'identifiant separe : ils utilisent cette meme base
@@ -96,7 +96,7 @@ services:
         DAGSTER_PG_PORT=5432
         DAGSTER_PG_DB=codelab
         DAGSTER_PG_USER=codelab
-        DAGSTER_PG_PASSWORD=$(cat /var/lib/codelab/config/postgres_password)"
+        DAGSTER_PG_PASSWORD=$$(cat /var/lib/codelab/config/postgres_password)"
 
         upsert_block "codelab-dev" "# Pas de mot de passe : l'acces SSH (port 2222) se fait uniquement par
         # cle publique (variable SSH_PUBLIC_KEY, saisie a l'installation).
@@ -104,7 +104,7 @@ services:
         # persistees dans /DATA/AppData/codelab/dev-host-keys -- sensibles,
         # ne jamais les partager, mais rien a documenter ici."
 
-        chmod 600 "$ENV_FILE"
+        chmod 600 "$$ENV_FILE"
 
         exec docker-entrypoint.sh postgres
 
