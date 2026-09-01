@@ -22,105 +22,16 @@ x-casaos:
 services:
 
   codelab-postgres:
-    image: postgres:18
+    # L'image officielle postgres, plus un entrypoint versionne qui genere le
+    # mot de passe et ecrit credentials.env (voir postgres/entrypoint.sh).
+    # Ce script vivait dans ce fichier ; ZimaOS le reecrit a l'import et
+    # annule l'echappement des variables shell, que Compose remplacait
+    # ensuite par du vide -- Postgres ne demarrait plus
+    # ("mkdir: cannot create directory ''").
+    # Dans une image, il ne traverse plus aucune reecriture.
+    image: ghcr.io/lucasrtn/codelab-postgres:latest
     container_name: codelab-postgres
     restart: unless-stopped
-
-    # Genere (ou reprend) le mot de passe Postgres au premier demarrage,
-    # l'ecrit dans credentials.env -- LE fichier de secrets de CodeLab, aucun
-    # autre -- puis rend la main a l'entrypoint officiel de l'image. Evite un
-    # conteneur d'initialisation a part, qui apparaissait comme un dossier
-    # AppData distinct dans ZimaOS sans y avoir sa place.
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        set -e
-        CONFIG_DIR=/var/lib/codelab/config
-        ENV_FILE="$$CONFIG_DIR/credentials.env"
-        LEGACY_PW_FILE="$$CONFIG_DIR/postgres_password"
-        mkdir -p "$$CONFIG_DIR"
-        touch "$$ENV_FILE"
-        chmod 600 "$$ENV_FILE"
-
-        # Lit une cle dans credentials.env (chaine vide si absente).
-        get_value() {
-          sed -n "s/^$$1=//p" "$$ENV_FILE" | head -n 1
-        }
-
-        # Remplacement par BLOC entier (commentaires inclus), delimite par
-        # des marqueurs "# ===== NOM =====" / "# ===== /NOM =====" -- pas juste
-        # par prefixe de cle, sinon les commentaires documentant chaque bloc
-        # s'accumuleraient en double a chaque redemarrage. Chaque service ne
-        # touche qu'a son propre bloc, les autres restent intacts quel que
-        # soit l'ordre de demarrage.
-        upsert_block() {
-          name="$$1"; content="$$2"
-          awk -v s="# ===== $$name =====" -v e="# ===== /$$name =====" \
-            '$$0==s{skip=1} !skip{print} $$0==e{skip=0}' "$$ENV_FILE" > "$$ENV_FILE.tmp"
-          {
-            cat "$$ENV_FILE.tmp"
-            echo "# ===== $$name ====="
-            printf '%s\n' "$$content" | sed 's/^[[:space:]]*//'
-            echo "# ===== /$$name ====="
-          } > "$$ENV_FILE.new"
-          mv "$$ENV_FILE.new" "$$ENV_FILE"
-          rm -f "$$ENV_FILE.tmp"
-        }
-
-        # Ordre de priorite : la valeur deja presente dans credentials.env
-        # fait autorite (c'est celle avec laquelle la base a ete initialisee),
-        # sinon on reprend l'ancien fichier postgres_password d'une install
-        # anterieure, sinon on genere. Ne JAMAIS regenerer par-dessus une
-        # valeur existante : la base refuserait la connexion.
-        PG_PASSWORD="$$(get_value POSTGRES_PASSWORD)"
-        MIGRATED=0
-        if [ -z "$$PG_PASSWORD" ] && [ -s "$$LEGACY_PW_FILE" ]; then
-          PG_PASSWORD="$$(cat "$$LEGACY_PW_FILE")"
-          MIGRATED=1
-        fi
-        if [ -z "$$PG_PASSWORD" ]; then
-          PG_PASSWORD="$$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-          echo "[codelab-postgres] mot de passe genere."
-        fi
-
-        upsert_block "codelab-header" "# credentials.env -- TOUS les identifiants CodeLab, generes et
-        # geres automatiquement par les services au demarrage. C'est le seul
-        # fichier de secrets : rien n'est stocke ailleurs. Ne pas editer a la
-        # main, chaque bloc est entierement reecrit au redemarrage du service
-        # concerne. Permissions 600 -- lisible uniquement par root sur le
-        # disque du ZimaOS."
-
-        upsert_block "codelab-postgres" "# Base de donnees partagee par tous les services CodeLab.
-        # Utilisee par : codelab-dev, codelab-dagster, codelab-dagster-daemon,
-        # qui lisent POSTGRES_PASSWORD ici meme (plus de fichier dedie).
-        POSTGRES_HOST=codelab-postgres
-        POSTGRES_PORT=5432
-        POSTGRES_DB=codelab
-        POSTGRES_USER=codelab
-        POSTGRES_PASSWORD=$$PG_PASSWORD"
-
-        upsert_block "codelab-dev" "# Pas de mot de passe : l'acces SSH (port 2222) se fait uniquement par
-        # cle publique. Les cles autorisees et les cles hote sont regroupees
-        # dans /DATA/AppData/codelab/config/ssh/ (authorized_keys et
-        # host_keys/) -- des fichiers de cles, pas des valeurs a lister ici."
-
-        chmod 600 "$$ENV_FILE"
-
-        # Migration terminee et ecrite : l'ancien fichier n'a plus de raison
-        # d'exister. Supprime seulement apres coup, jamais avant.
-        if [ "$$MIGRATED" = "1" ]; then
-          rm -f "$$LEGACY_PW_FILE"
-          echo "[codelab-postgres] postgres_password migre vers credentials.env puis supprime."
-        fi
-
-        # L'image officielle refuse POSTGRES_PASSWORD et POSTGRES_PASSWORD_FILE
-        # simultanement : on ne passe plus que la variable, lue du fichier unique.
-        unset POSTGRES_PASSWORD_FILE
-        POSTGRES_PASSWORD="$$PG_PASSWORD"
-        export POSTGRES_PASSWORD
-
-        exec docker-entrypoint.sh postgres
 
     environment:
       POSTGRES_DB: codelab
@@ -131,7 +42,7 @@ services:
     volumes:
       # Chemin par defaut : /DATA/AppData/codelab/postgres.
       # ZimaOS affiche ce chemin comme un champ modifiable a l'installation
-      # (les volumes ${VAR} font echouer son parseur -> chemin litteral
+      # (les volumes a variable font echouer son parseur -> chemin litteral
       # obligatoire ici, personnalisation via l'ecran d'install ZimaOS).
       - /DATA/AppData/codelab/postgres:/var/lib/postgresql
       # Pas ":ro" ici : c'est ce service qui cree credentials.env et y ecrit
