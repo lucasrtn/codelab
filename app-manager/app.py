@@ -109,15 +109,19 @@ def rotate_log_if_needed(name):
 def read_shared_value(key):
     """Lit une cle dans credentials.env. Renvoie None si le fichier n'existe
     pas, n'est pas lisible, ou ne contient pas la cle."""
+    # Derniere occurrence : chaque bloc est reecrit en fin de fichier, donc
+    # une valeur laissee plus haut (edition a la main, ancien format) est
+    # forcement la perimee.
+    valeur = None
     try:
         with open(SHARED_ENV_FILE) as f:
             for line in f:
                 line = line.strip()
                 if line.startswith(key + "="):
-                    return line[len(key) + 1:].strip() or None
+                    valeur = line[len(key) + 1:].strip() or None
     except OSError:
         pass
-    return None
+    return valeur
 
 
 def read_legacy_file(path):
