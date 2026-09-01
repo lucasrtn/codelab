@@ -79,7 +79,8 @@ done
 
 PG_PASSWORD=""
 if [ -r "$ENV_FILE" ]; then
-    PG_PASSWORD="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$ENV_FILE" | head -n 1)"
+    # tail : la derniere occurrence fait autorite (bloc reecrit en fin de fichier).
+    PG_PASSWORD="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$ENV_FILE" | tail -n 1)"
 fi
 if [ -z "$PG_PASSWORD" ]; then
     echo "[codelab-dev] POSTGRES_PASSWORD introuvable dans $ENV_FILE :" \
