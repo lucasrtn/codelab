@@ -6,15 +6,16 @@ name: Build & push CodeLab images
 #      en "latest" + SHA court. C'est le flux courant, pour du developpement.
 #
 #   2. Tag Git au format "vX.Y.Z" (ex. v1.0.0) -> reconstruit et publie les
-#      3 images EN MEME TEMPS, toutes avec ce meme numero de version
-#      (ghcr.io/lucasrtn/codelab-{dev,dagster,app-manager}:1.0.0). CodeLab
-#      est distribue comme un tout : dev, dagster et app-manager sortent
+#      4 images EN MEME TEMPS, toutes avec ce meme numero de version
+#      (ghcr.io/lucasrtn/codelab-{postgres,dev,dagster,app-manager}:1.0.0). CodeLab
+#      est distribue comme un tout : postgres, dev, dagster et app-manager sortent
 #      ensemble, jamais versionnes independamment. "latest" n'est pas
 #      touche par un tag de version.
 on:
   push:
     branches: [main]
     paths:
+      - "postgres/**"
       - "dev/**"
       - "dagster/**"
       - "app-manager/**"
@@ -39,6 +40,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: codelab-postgres
+            dockerfile: postgres/Dockerfile
           - name: codelab-dev
             dockerfile: dev/Dockerfile
           - name: codelab-dagster
