@@ -51,7 +51,8 @@ import urllib.request
 from collections import deque
 
 import psutil
-from flask import Flask, Response, jsonify, redirect, request, session, send_file
+from flask import (Flask, Response, jsonify, redirect, request, session, send_file,
+                   stream_with_context)
 from werkzeug.security import check_password_hash
 
 CONFIG_DIR = os.environ.get("APP_MANAGER_DIR", "/opt/codelab/app-manager")
