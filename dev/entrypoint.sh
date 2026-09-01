@@ -27,6 +27,7 @@
 #      demarre quand meme. SSH reste utilisable sans la base.
 set -e
 
+SSH_USER="${CODELAB_SSH_USER:-vscode}"
 SSH_DIR="${CODELAB_SSH_DIR:-/var/lib/codelab/ssh}"
 HOST_KEYS_DIR="$SSH_DIR/host_keys"
 AUTHORIZED_KEYS="$SSH_DIR/authorized_keys"
@@ -37,7 +38,14 @@ BASHRC=/home/vscode/.bashrc
 # ------------------------------ cles SSH ------------------------------
 
 mkdir -p "$HOST_KEYS_DIR"
-chmod 700 "$SSH_DIR" "$HOST_KEYS_DIR"
+# Droits differencies, et c'est LE point delicat de ce fichier : sshd lit les
+# cles hote en root, mais il ouvre authorized_keys apres avoir pris l'uid de
+# l'utilisateur cible (temporarily_use_uid). Un dossier 700 root:root donne
+# donc "Could not open user 'vscode' authorized keys: Permission denied", et
+# un refus cote client reduit a "Permission denied (publickey)", sans autre
+# explication. Le dossier doit rester traversable par cet utilisateur.
+chmod 755 "$SSH_DIR"
+chmod 700 "$HOST_KEYS_DIR"
 
 for t in rsa ecdsa ed25519; do
     if [ ! -f "$HOST_KEYS_DIR/ssh_host_${t}_key" ]; then
@@ -49,11 +57,15 @@ cp -f "$HOST_KEYS_DIR"/ssh_host_*_key "$HOST_KEYS_DIR"/ssh_host_*_key.pub /etc/s
 chmod 600 /etc/ssh/ssh_host_*_key
 
 touch "$AUTHORIZED_KEYS"
-chmod 600 "$AUTHORIZED_KEYS"
 if [ -n "${SSH_PUBLIC_KEY:-}" ] && ! grep -qxF "$SSH_PUBLIC_KEY" "$AUTHORIZED_KEYS"; then
     printf '%s\n' "$SSH_PUBLIC_KEY" >> "$AUTHORIZED_KEYS"
     echo "[codelab-dev] cle publique ajoutee a $AUTHORIZED_KEYS."
 fi
+# Appartenance a l'utilisateur SSH, pour la meme raison : c'est lui qui ouvre
+# le fichier. Refait a chaque demarrage, y compris sur un fichier ajoute a la
+# main depuis l'hote (ou il appartient a root).
+chown "$SSH_USER:$SSH_USER" "$AUTHORIZED_KEYS"
+chmod 600 "$AUTHORIZED_KEYS"
 
 # Pose la directive au demarrage plutot qu'au build : le chemin vient de
 # CODELAB_SSH_DIR, sshd et l'entrypoint ne peuvent donc pas diverger.
@@ -114,5 +126,12 @@ configure_pg_profile || echo "[codelab-dev] identifiants Postgres non pre-rempli
 # ------------------------------- demarrage -------------------------------
 
 mkdir -p /run/sshd
-/usr/sbin/sshd
+# "-D -e" plutot que le lancement en demon : sans ca, sshd journalise vers
+# syslog, absent du conteneur, et "docker logs codelab-dev" ne dit jamais
+# POURQUOI une authentification echoue -- on l'a paye cher en diagnostiquant
+# un "Permission denied (publickey)" a l'aveugle. "-D" garde sshd au premier
+# plan et "-e" envoie ses journaux sur stderr ; l'esperluette le remet en
+# tache de fond en lui laissant le stderr du conteneur. Teste : "-E /dev/stderr"
+# ne remonte que le demarrage, pas les evenements d'authentification.
+/usr/sbin/sshd -D -e &
 exec "$@"
