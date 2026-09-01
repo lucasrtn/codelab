@@ -48,6 +48,27 @@ avec un acces Postgres deja configure dans l'environnement de session.
 | `/var/lib/codelab/ssh` | Tout le SSH au meme endroit : `authorized_keys` et `host_keys/` (cote hote : `config/ssh/`) |
 | `/var/lib/codelab/config` | Lecture seule — `credentials.env`, d'ou est lu le mot de passe Postgres |
 
+## Droits sur les cles : le piege
+
+`sshd` ne lit pas ces deux fichiers avec la meme identite.
+
+- **Cles hote** : lues en `root`, avant toute bascule d'identite. `host_keys/` reste donc en `700 root:root`.
+- **`authorized_keys`** : ouvert **apres** que `sshd` a pris l'uid de l'utilisateur cible
+  (`temporarily_use_uid` dans les logs). Le fichier doit appartenir a `vscode` et le dossier qui le contient
+  doit lui etre traversable, sinon `sshd` ne peut pas l'ouvrir.
+
+L'entrypoint applique donc `755` sur `CODELAB_SSH_DIR`, `700` sur `host_keys/`, et
+`chown vscode:vscode` + `600` sur `authorized_keys` a chaque demarrage — y compris sur un fichier ajoute a la
+main depuis l'hote, ou il appartient a `root`.
+
+Sans ca, le serveur repond `Permission denied (publickey)` alors que la cle est bien la et bien formee. Le
+message cote client est identique a celui d'une cle absente : c'est pour cette raison que `sshd` est lance
+avec `-D -e`, qui fait apparaitre la vraie cause dans `docker logs codelab-dev` :
+
+```
+Could not open user 'vscode' authorized keys '/var/lib/codelab/ssh/authorized_keys': Permission denied
+```
+
 ## Cles hote SSH et empreinte stable
 
 `apt-get install openssh-server` genere des cles hote **au moment du build de l'image**. Sans precaution, ces
