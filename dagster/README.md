@@ -98,3 +98,22 @@ docker run --rm -p 3000:3000 -v "$PWD/workspace-test:/workspace" codelab-dagster
 Pour un test complet avec stockage Postgres, plus simple de passer par `docker compose up codelab-postgres
 codelab-dagster` depuis la racine du depot, avec les variables `DAGSTER_PG_*` deja definies dans
 `docker-compose.yml`.
+## Piege : `docker exec` contourne l'entrypoint
+
+C'est l'entrypoint qui lit `POSTGRES_PASSWORD` dans `credentials.env` et l'exporte en
+`DAGSTER_PG_PASSWORD`. Or `docker exec` execute la commande **sans** passer par lui : la variable n'existe
+pas dans cette session, et toute commande `dagster` echoue avec
+
+```
+PostProcessingError: You have attempted to fetch the environment variable "DAGSTER_PG_PASSWORD"
+which is not set.
+```
+
+Ce n'est pas une panne : le webserver et le daemon, eux, l'ont bien. Pour une commande ponctuelle, fournir
+la variable soi-meme :
+
+```bash
+docker exec -w /workspace codelab-dagster sh -c \
+  'DAGSTER_PG_PASSWORD=$(sed -n "s/^POSTGRES_PASSWORD=//p" /var/lib/codelab/config/credentials.env | tail -n1) \
+   dagster asset materialize -m definitions --select <asset>'
+```
